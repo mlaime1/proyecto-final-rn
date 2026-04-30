@@ -1,50 +1,139 @@
-# Welcome to your Expo app 👋
+# Plantilla React Native
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Plantilla base profesional para proyectos React Native con Expo + TypeScript. Proporciona una arquitectura limpia y moderna lista para cualquier proyecto o producción. Se pueden agregar features específicas en `src/features/` sin preocuparse por la configuración inicial.
 
-## Get started
+## 🛠️ Stack Tecnológico
 
-1. Install dependencies
+- **Expo SDK** (última versión)
+- **TypeScript** (strict mode)
+- **Expo Router** (navegación basada en archivos)
+- **Zustand** (state management global)
+- **AsyncStorage** (persistencia local)
+- **ESLint + Prettier** (linting y formateo)
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## 📦 Instalación
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 🚀 Cómo iniciar
+```bash
+npx expo start --tunnel
+```
 
-## Learn more
+Escaneá el QR con la app **Expo Go** desde tu dispositivo físico (disponible en App Store y Google Play).
 
-To learn more about developing your project with Expo, look at the following resources:
+> **¿Por qué `--tunnel`?** Este flag crea un túnel para que Expo Go pueda conectarse al servidor de desarrollo aunque haya restricciones de red o el dispositivo no pueda comunicarse directamente con la computadora por LAN.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 📂 Estructura del Proyecto
 
-## Join the community
+```
+rn-starter/
+├── src/
+│   ├── app/                 # Rutas de la app (expo-router)
+│   │   ├── _layout.tsx      # Layout principal
+│   │   └── index.tsx        # Pantalla Home
+│   ├── components/
+│   │   └── ui/              # Componentes UI reutilizables
+│   │       ├── Button.tsx
+│   │       ├── Text.tsx
+│   │       ├── Screen.tsx
+│   │       └── Input.tsx
+│   ├── hooks/               # Custom hooks
+│   │   └── useColorScheme.ts
+│   ├── lib/                 # Utilidades y configuración
+│   │   ├── theme.ts         # Tokens de diseño (light/dark)
+│   │   ├── storage.ts       # Helpers de AsyncStorage
+│   │   └── logger.ts        # Logger para desarrollo
+│   ├── services/            # Servicios externos (API, etc.)
+│   │   └── api.client.placeholder.ts
+│   ├── store/               # Estado global (Zustand)
+│   │   └── app.store.ts     # Store de ejemplo
+│   ├── styles/              # Estilos globales
+│   │   └── globals.ts       # Spacing, typography, radius
+│   └── features/            # 🎯 AGREGA TUS FEATURES AQUÍ
+└── assets/                  # Imágenes, fuentes, etc.
+```
 
-Join our community of developers creating universal apps.
+## Cómo agregar una nueva pantalla
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Con **expo-router**, simplemente crea un archivo en `src/app/`:
+
+```tsx
+// src/app/profile.tsx
+import React from 'react';
+import Screen from '@/components/ui/Screen';
+import Text from '@/components/ui/Text';
+
+export default function Profile() {
+  return (
+    <Screen>
+      <Text>Mi Perfil</Text>
+    </Screen>
+  );
+}
+```
+
+La ruta será automáticamente `/profile`.
+
+## 📐 Absolute Imports
+
+Usa `@/*` para importar desde `src/`:
+
+```tsx
+import Button from '@/components/ui/Button';
+import { storage } from '@/lib/storage';
+import { useAppStore } from '@/store/app.store';
+```
+
+## 🎨 Theming
+
+El sistema de temas está en `src/lib/theme.ts`:
+
+```ts
+theme.light; // { bg, text, muted, primary, border }
+theme.dark; // { bg, text, muted, primary, border }
+```
+
+Usa `useColorScheme()` para detectar el modo del sistema.
+
+## 💾 Persistencia Local
+
+Helpers listos en `src/lib/storage.ts`:
+
+```ts
+await storage.set('key', value);
+const value = await storage.get<Type>('key');
+await storage.remove('key');
+```
+
+## 🗂️ Estado Global (Zustand)
+
+Store de ejemplo en `src/store/app.store.ts`:
+
+```ts
+const ready = useAppStore((state) => state.ready);
+const setReady = useAppStore((state) => state.setReady);
+```
+
+Crea tus propios stores para features específicas.
+
+## ✅ Buenas Prácticas
+
+1. **Estado global**: Crea stores específicos en `src/store/`
+2. **Utilidades**: Agrega helpers en `src/lib/`
+3. **Componentes UI**: Mantén componentes genéricos en `src/components/ui/`
+4. **Features**: Organiza lógica de negocio en `src/features/[nombre-feature]/`
+5. **Servicios**: Configuración de API en `src/services/`
+
+## 🧹 Scripts Disponibles
+
+```bash
+npm run lint      # Ejecutar ESLint
+npm run format    # Formatear código con Prettier
+```
+
+---
+
+**¡Listo para comenzar tu proyecto!** 🚀

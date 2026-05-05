@@ -11,9 +11,7 @@ export default function BrandHeader({ title, subtitle, logo }: Props) {
   return (
     <View style={styles.wrapper} accessibilityRole="header">
       <View style={styles.row}>
-        {logo && (
-          <Image source={logo} style={styles.logo} resizeMode="contain" accessible />
-        )}
+        {logo && <Image source={logo} style={styles.logo} resizeMode="contain" accessible />}
         <Text style={styles.title}>{title}</Text>
         {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       </View>

@@ -1,33 +1,70 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Screen from '@/components/ui/Screen';
+import Card, { type TurnoCardData } from '@/components/ui/Card';
 
-const upcomingAppointments = [
-  { id: '1', customer: 'Ana Perez', service: 'Corte de cabello', time: '09:00' },
-  { id: '2', customer: 'Lucas Gomez', service: 'Perfilado de barba', time: '11:30' },
-  { id: '3', customer: 'Micaela Diaz', service: 'Coloracion', time: '15:00' },
+const upcomingAppointments: TurnoCardData[] = [
+  {
+    id: 1,
+    created_at: '2026-05-05T08:00:00.000Z',
+    duracion: '00:45:00',
+    estado: 'pendiente',
+    inicio: '2026-05-05T09:00:00.000Z',
+    precio: 18000,
+    cliente_id: 1,
+    emprendedor_id: 3,
+    fin: '2026-05-05T09:45:00.000Z',
+    update_at: '2026-05-05T08:00:00.000Z',
+    cliente: {
+      id: 1,
+      nombre: 'Ana Perez',
+    },
+  },
+  {
+    id: 2,
+    created_at: '2026-05-05T08:10:00.000Z',
+    duracion: '00:30:00',
+    estado: 'confirmado',
+    inicio: '2026-05-05T11:30:00.000Z',
+    precio: 12000,
+    cliente_id: 2,
+    emprendedor_id: 3,
+    fin: '2026-05-05T12:00:00.000Z',
+    update_at: '2026-05-05T08:10:00.000Z',
+    cliente: {
+      id: 2,
+      nombre: 'Lucas Gomez',
+    },
+  },
+  {
+    id: 3,
+    created_at: '2026-05-05T08:20:00.000Z',
+    duracion: '01:30:00',
+    estado: 'pendiente',
+    inicio: '2026-05-05T15:00:00.000Z',
+    precio: 32000,
+    cliente_id: 3,
+    emprendedor_id: 4,
+    fin: '2026-05-05T16:30:00.000Z',
+    update_at: '2026-05-05T08:20:00.000Z',
+    cliente: {
+      id: 3,
+      nombre: 'Micaela Diaz',
+    },
+  },
 ];
 
 export default function TurnosScreen() {
   return (
     <Screen>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Listado de turnos</Text>
-          <Text style={styles.subtitle}>Consulta rapidamente las reservas del dia.</Text>
-        </View>
-
-        <View style={styles.list}>
-          {upcomingAppointments.map((turno) => (
-            <View key={turno.id} style={styles.card}>
-              <View style={styles.row}>
-                <Text style={styles.time}>{turno.time}</Text>
-                <Text style={styles.service}>{turno.service}</Text>
-              </View>
-              <Text style={styles.customer}>{turno.customer}</Text>
-            </View>
-          ))}
-        </View>
+      <View style={styles.list}>
+        {upcomingAppointments.length === 0 ? (
+          <Text style={styles.empty}>No hay turnos</Text>
+        ) : (
+          upcomingAppointments.map((turno) => (
+            <Card key={turno.id} turno={turno} />
+          ))
+        )}
       </View>
     </Screen>
   );
@@ -81,5 +118,11 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 16,
     fontWeight: '600',
+  },
+  empty: {
+    textAlign: 'center',
+    color: '#64748B',
+    fontSize: 16,
+    marginTop: 20,
   },
 });

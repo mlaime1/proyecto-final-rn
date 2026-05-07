@@ -1,0 +1,55 @@
+import type { TurnoCardData } from '@/components/ui/Card';
+
+export const upcomingAppointments: TurnoCardData[] = [
+  {
+    id: 1,
+    created_at: '2026-05-05T08:00:00.000Z',
+    duracion: '00:45:00',
+    estado: 'pendiente',
+    inicio: '2026-05-05T09:00:00.000Z',
+    precio: 18000,
+    cliente_id: 1,
+    emprendedor_id: 3,
+    fin: '2026-05-05T09:45:00.000Z',
+    update_at: '2026-05-05T08:00:00.000Z',
+    servicio: 'Corte de pelo',
+    cliente: {
+      id: 1,
+      nombre: 'Ana Perez',
+    },
+  },
+  {
+    id: 2,
+    created_at: '2026-05-05T08:10:00.000Z',
+    duracion: '00:30:00',
+    estado: 'confirmado',
+    inicio: '2026-05-05T11:30:00.000Z',
+    precio: 12000,
+    cliente_id: 2,
+    emprendedor_id: 3,
+    fin: '2026-05-05T12:00:00.000Z',
+    update_at: '2026-05-05T08:10:00.000Z',
+    servicio: 'Barba',
+    cliente: {
+      id: 2,
+      nombre: 'Lucas Gomez',
+    },
+  },
+  {
+    id: 3,
+    created_at: '2026-05-05T08:20:00.000Z',
+    duracion: '01:30:00',
+    estado: 'pendiente',
+    inicio: '2026-05-05T15:00:00.000Z',
+    precio: 32000,
+    cliente_id: 3,
+    emprendedor_id: 4,
+    fin: '2026-05-05T16:30:00.000Z',
+    update_at: '2026-05-05T08:20:00.000Z',
+    servicio: 'Corte + Barba',
+    cliente: {
+      id: 3,
+      nombre: 'Micaela Diaz',
+    },
+  },
+];

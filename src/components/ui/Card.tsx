@@ -1,6 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type ClienteResumen = {
   id: number;
@@ -18,6 +17,7 @@ export type TurnoCardData = {
   emprendedor_id: number;
   fin: string;
   update_at: string;
+  servicio?: string;
   cliente?: ClienteResumen | null;
 };
 

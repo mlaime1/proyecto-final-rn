@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import Screen from '@/components/ui/Screen';
 import { getTurnos, type Turno } from '@/services/turnos.service';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
@@ -85,12 +85,7 @@ function TurnoCard({ turno, isLast }: TurnoCardProps) {
             <Text style={styles.turnoDate}>{fecha}</Text>
             <Text style={styles.turnoTime}>{hora}</Text>
           </View>
-          <View
-            style={[
-              styles.estadoBadge,
-              { backgroundColor: getEstadoBadgeColor(estado) },
-            ]}
-          >
+          <View style={[styles.estadoBadge, { backgroundColor: getEstadoBadgeColor(estado) }]}>
             <Text style={[styles.estadoText, { color: getEstadoTextColor(estado) }]}>
               {estado.charAt(0).toUpperCase() + estado.slice(1)}
             </Text>
@@ -100,15 +95,11 @@ function TurnoCard({ turno, isLast }: TurnoCardProps) {
         <View style={styles.turnoDetails}>
           <View style={styles.turnoDetailRow}>
             <MaterialIcons name="person" size={16} color="#94A3B8" />
-            <Text style={styles.turnoDetailText}>
-              Cliente #{(turno as any).cliente_id}
-            </Text>
+            <Text style={styles.turnoDetailText}>Cliente #{(turno as any).cliente_id}</Text>
           </View>
           <View style={styles.turnoDetailRow}>
             <MaterialIcons name="build" size={16} color="#94A3B8" />
-            <Text style={styles.turnoDetailText}>
-              Servicio #{(turno as any).servicio_id}
-            </Text>
+            <Text style={styles.turnoDetailText}>Servicio #{(turno as any).servicio_id}</Text>
           </View>
         </View>
       </View>
@@ -145,7 +136,10 @@ export default function Home() {
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
-                {userName.split(' ').map((n) => n[0]).join('')}
+                {userName
+                  .split(' ')
+                  .map((n) => n[0])
+                  .join('')}
               </Text>
             </View>
           </View>
@@ -167,7 +161,7 @@ export default function Home() {
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push('/(tabs)/turnos')}
+            onPress={() => router.push('/(tabs)/turnos/nuevo')}
             activeOpacity={0.7}
           >
             <View style={styles.actionCardIcon}>

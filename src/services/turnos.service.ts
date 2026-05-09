@@ -10,7 +10,7 @@ export type TurnoUpdate = Database['public']['Tables']['Turno']['Update'];
 export type Servicio = Database['public']['Tables']['Servicio']['Row'];
 
 /* =========================
-   Tipo UI (con JOIN)
+   Tipo UI
 ========================= */
 export type TurnoUI = {
   id: number;
@@ -23,27 +23,22 @@ export type TurnoUI = {
 };
 
 /* =========================
-   GET TURNOS (FILTRADO + JOIN)
+   GET TURNOS
 ========================= */
 export async function getTurnos(): Promise<TurnoUI[]> {
-  // 1. usuario logueado
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
-  console.log(userId);
-  
 
   if (!userId) return [];
 
-  // 2. obtener emprendedor
-  const { data: emprendedor, error: empError } = await supabase
+  const { data: emprendedor } = await supabase
     .from('Emprendedor')
     .select('id')
-    .eq('users_id', userId)
+    .eq('user_id', userId)
     .single();
 
-  if (empError || !emprendedor) return [];
+  if (!emprendedor) return [];
 
-  // 3. traer turnos del emprendedor
   const { data, error } = await supabase
     .from('Turno')
     .select(`
@@ -60,7 +55,6 @@ export async function getTurnos(): Promise<TurnoUI[]> {
 
   if (error) throw new Error(error.message);
 
-  // 4. map a UI
   return data.map((t: any) => ({
     id: t.id,
     inicio: t.inicio,
@@ -100,7 +94,7 @@ export async function getServicios() {
 }
 
 /* =========================
-   CREAR TURNO
+   CREATE
 ========================= */
 export type CreateAppointmentData = {
   nombre: string;
@@ -108,19 +102,16 @@ export type CreateAppointmentData = {
   telefono: number;
   servicio_id: number;
   inicio: string;
-  emprendedor_id?: number;
 };
 
 export async function createAppointment(data: CreateAppointmentData) {
   const { nombre, apellido, telefono, servicio_id, inicio } = data;
 
-  // 1. usuario actual
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
 
   if (!userId) throw new Error('Usuario no autenticado');
 
-  // 2. obtener emprendedor
   const { data: emprendedor } = await supabase
     .from('Emprendedor')
     .select('id')
@@ -129,7 +120,6 @@ export async function createAppointment(data: CreateAppointmentData) {
 
   if (!emprendedor) throw new Error('Emprendedor no encontrado');
 
-  // 3. buscar o crear cliente
   let clienteId: number;
 
   const { data: existingCliente } = await supabase
@@ -154,7 +144,6 @@ export async function createAppointment(data: CreateAppointmentData) {
     clienteId = newCliente.id;
   }
 
-  // 4. crear turno
   const { data: createdTurno, error } = await supabase
     .from('Turno')
     .insert({

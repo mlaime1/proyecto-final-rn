@@ -1,4 +1,4 @@
-# Plantilla React Native
+npx# Plantilla React Native
 
 Plantilla base profesional para proyectos React Native con Expo + TypeScript. Proporciona una arquitectura limpia y moderna lista para cualquier proyecto o producción. Se pueden agregar features específicas en `src/features/` sin preocuparse por la configuración inicial.
 

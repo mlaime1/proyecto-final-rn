@@ -43,6 +43,7 @@ export default function LayoutTabs() {
         name="turnos"
         options={{
           title: 'Turnos',
+          href: '/(tabs)/turnos',
           tabBarIcon: ({ color, focused, size }) => (
             <MaterialIcons name={focused ? 'event' : 'event-note'} size={size} color={color} />
           ),

@@ -1,33 +1,20 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import Card from '@/components/ui/Card';
 import Screen from '@/components/ui/Screen';
-
-const upcomingAppointments = [
-  { id: '1', customer: 'Ana Perez', service: 'Corte de cabello', time: '09:00' },
-  { id: '2', customer: 'Lucas Gomez', service: 'Perfilado de barba', time: '11:30' },
-  { id: '3', customer: 'Micaela Diaz', service: 'Coloracion', time: '15:00' },
-];
+import { router } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
+import { upcomingAppointments } from './data';
 
 export default function TurnosScreen() {
   return (
     <Screen>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Listado de turnos</Text>
-          <Text style={styles.subtitle}>Consulta rapidamente las reservas del dia.</Text>
-        </View>
-
-        <View style={styles.list}>
-          {upcomingAppointments.map((turno) => (
-            <View key={turno.id} style={styles.card}>
-              <View style={styles.row}>
-                <Text style={styles.time}>{turno.time}</Text>
-                <Text style={styles.service}>{turno.service}</Text>
-              </View>
-              <Text style={styles.customer}>{turno.customer}</Text>
-            </View>
-          ))}
-        </View>
+      <View style={styles.list}>
+        {upcomingAppointments.length === 0 ? (
+          <Text style={styles.empty}>No hay turnos</Text>
+        ) : (
+          upcomingAppointments.map((turno) => (
+            <Card key={turno.id} turno={turno} onPress={() => router.push(`./turnos/${turno.id}`)} />
+          ))
+        )}
       </View>
     </Screen>
   );
@@ -81,5 +68,11 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 16,
     fontWeight: '600',
+  },
+  empty: {
+    textAlign: 'center',
+    color: '#64748B',
+    fontSize: 16,
+    marginTop: 20,
   },
 });

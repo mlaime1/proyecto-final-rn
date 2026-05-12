@@ -2,7 +2,7 @@ import Card from '@/components/ui/Card';
 import Screen from '@/components/ui/Screen';
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { upcomingAppointments } from './data';
+import { upcomingAppointments } from './_data';
 
 export default function TurnosScreen() {
   return (

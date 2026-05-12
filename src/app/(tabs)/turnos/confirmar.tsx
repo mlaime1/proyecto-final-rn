@@ -212,7 +212,7 @@ export default function ConfirmarTurnoScreen() {
               style={styles.modalButton}
               onPress={() => {
                 setShowSuccessModal(false);
-                router.push('/(tabs)/turnos');
+                router.navigate('/(tabs)/turnos');
               }}
             >
               <Text style={styles.modalButtonText}>Ver mis turnos</Text>

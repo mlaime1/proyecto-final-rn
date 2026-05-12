@@ -29,6 +29,8 @@ export async function getTurnos(): Promise<TurnoUI[]> {
   // 1. usuario logueado
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
+  console.log(userId);
+  
 
   if (!userId) return [];
 
@@ -36,7 +38,7 @@ export async function getTurnos(): Promise<TurnoUI[]> {
   const { data: emprendedor, error: empError } = await supabase
     .from('Emprendedor')
     .select('id')
-    .eq('user_id', userId)
+    .eq('users_id', userId)
     .single();
 
   if (empError || !emprendedor) return [];

@@ -1,10 +1,14 @@
 import Screen from '@/components/ui/Screen';
-import { getTurnos, type Turno } from '@/services/turnos.service';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getTurnos, TurnoUI } from '@/services/turnos.service';
+import { log } from '@/lib/logger';
 
+/* =========================
+   Helpers
+========================= */
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   const today = new Date();
@@ -29,7 +33,10 @@ const formatDate = (dateString: string) => {
 
 const formatTime = (dateString: string) => {
   const date = new Date(dateString);
-  return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 };
 
 const getEstadoBadgeColor = (estado: string) => {
@@ -62,15 +69,18 @@ const getEstadoTextColor = (estado: string) => {
   }
 };
 
+/* =========================
+   Card
+========================= */
 type TurnoCardProps = {
-  turno: Turno & { estado?: string };
+  turno: TurnoUI;
   isLast: boolean;
 };
 
 function TurnoCard({ turno, isLast }: TurnoCardProps) {
-  const fecha = formatDate((turno as any).inicio);
-  const hora = formatTime((turno as any).inicio);
-  const estado = (turno as any).estado || 'pendiente';
+  const fecha = formatDate(turno.inicio);
+  const hora = formatTime(turno.inicio);
+  const estado = turno.estado;
 
   return (
     <View style={[styles.turnoCard, !isLast && styles.turnoCardWithBorder]}>
@@ -85,6 +95,7 @@ function TurnoCard({ turno, isLast }: TurnoCardProps) {
             <Text style={styles.turnoDate}>{fecha}</Text>
             <Text style={styles.turnoTime}>{hora}</Text>
           </View>
+
           <View style={[styles.estadoBadge, { backgroundColor: getEstadoBadgeColor(estado) }]}>
             <Text style={[styles.estadoText, { color: getEstadoTextColor(estado) }]}>
               {estado.charAt(0).toUpperCase() + estado.slice(1)}
@@ -95,11 +106,12 @@ function TurnoCard({ turno, isLast }: TurnoCardProps) {
         <View style={styles.turnoDetails}>
           <View style={styles.turnoDetailRow}>
             <MaterialIcons name="person" size={16} color="#94A3B8" />
-            <Text style={styles.turnoDetailText}>Cliente #{(turno as any).cliente_id}</Text>
+            <Text style={styles.turnoDetailText}>{turno.cliente_nombre}</Text>
           </View>
+
           <View style={styles.turnoDetailRow}>
             <MaterialIcons name="build" size={16} color="#94A3B8" />
-            <Text style={styles.turnoDetailText}>Servicio #{(turno as any).servicio_id}</Text>
+            <Text style={styles.turnoDetailText}>{turno.servicio_nombre}</Text>
           </View>
         </View>
       </View>
@@ -107,10 +119,14 @@ function TurnoCard({ turno, isLast }: TurnoCardProps) {
   );
 }
 
+/* =========================
+   Screen
+========================= */
 export default function Home() {
   const router = useRouter();
-  const [turnos, setTurnos] = useState<Turno[]>([]);
+  const [turnos, setTurnos] = useState<TurnoUI[]>([]);
   const [loading, setLoading] = useState(true);
+
   const userName = 'Juan Pablo';
 
   useEffect(() => {
@@ -120,9 +136,11 @@ export default function Home() {
   const loadTurnos = async () => {
     try {
       const data = await getTurnos();
-      setTurnos(data.slice(0, 3));
-    } catch (error) {
-      console.error('Error loading turnos:', error);
+      console.log(data);
+      
+      setTurnos(data);
+    } catch (e) {
+      console.log(e);
     } finally {
       setLoading(false);
     }
@@ -131,71 +149,50 @@ export default function Home() {
   return (
     <Screen>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Profile Section */}
+        {/* Perfil */}
         <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {userName
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')}
-              </Text>
-            </View>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {userName.split(' ').map((n) => n[0]).join('')}
+            </Text>
           </View>
           <Text style={styles.greeting}>Hola, {userName}</Text>
         </View>
 
-        {/* Quick Action Cards */}
+        {/* Acciones */}
         <View style={styles.quickActionsContainer}>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/(tabs)/turnos')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.actionCardIcon}>
-              <MaterialIcons name="event" size={24} color="#4C1D95" />
-            </View>
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(tabs)/turnos')}>
+            <MaterialIcons name="event" size={24} color="#4C1D95" />
             <Text style={styles.actionCardLabel}>Turnos</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/(tabs)/turnos/nuevo')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.actionCardIcon}>
-              <MaterialIcons name="add-circle-outline" size={24} color="#4C1D95" />
-            </View>
-            <Text style={styles.actionCardLabel}>Nuevo Turno</Text>
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(tabs)/turnos/nuevo')}>
+            <MaterialIcons name="add-circle-outline" size={24} color="#4C1D95" />
+            <Text style={styles.actionCardLabel}>Nuevo</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/(tabs)/perfil')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.actionCardIcon}>
-              <Ionicons name="time-outline" size={24} color="#4C1D95" />
-            </View>
-            <Text style={styles.actionCardLabel}>Mis Procesos</Text>
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(tabs)/perfil')}>
+            <Ionicons name="time-outline" size={24} color="#4C1D95" />
+            <Text style={styles.actionCardLabel}>Procesos</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Próximos Turnos Section */}
+        {/* Turnos */}
         <View style={styles.turnosSection}>
           <Text style={styles.sectionTitle}>Próx Turnos</Text>
+
           <View style={styles.turnosContainer}>
             {loading ? (
-              <Text style={styles.emptyText}>Cargando turnos...</Text>
+              <Text style={styles.emptyText}>Cargando...</Text>
             ) : turnos.length === 0 ? (
-              <View style={styles.emptyState}>
-                <MaterialIcons name="event-busy" size={48} color="#CBD5E1" />
-                <Text style={styles.emptyText}>No hay turnos próximos</Text>
-              </View>
+              <Text style={styles.emptyText}>No hay turnos</Text>
             ) : (
               turnos.map((turno, index) => (
-                <TurnoCard key={turno.id} turno={turno} isLast={index === turnos.length - 1} />
+                <TurnoCard
+                  key={turno.id}
+                  turno={turno}
+                  isLast={index === turnos.length - 1}
+                />
               ))
             )}
           </View>
@@ -205,18 +202,17 @@ export default function Home() {
   );
 }
 
+/* =========================
+   Styles
+========================= */
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+
   profileSection: {
     alignItems: 'center',
-    marginBottom: 32,
-    marginTop: 16,
+    marginVertical: 24,
   },
-  avatarContainer: {
-    marginBottom: 16,
-  },
+
   avatar: {
     width: 80,
     height: 80,
@@ -224,151 +220,135 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDE9FE',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#E9D5FF',
   },
+
   avatarText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
     color: '#4C1D95',
   },
+
   greeting: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#0F172A',
+    marginTop: 12,
   },
+
   quickActionsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 32,
+    marginBottom: 24,
   },
+
   actionCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFF',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
   },
-  actionCardIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#F3E8FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
+
   actionCardLabel: {
+    marginTop: 8,
     fontSize: 12,
-    fontWeight: '600',
-    color: '#0F172A',
-    textAlign: 'center',
   },
+
   turnosSection: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
+
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 16,
-    paddingHorizontal: 4,
+    marginBottom: 12,
   },
+
   turnosContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FFF',
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 16,
-    padding: 16,
-    minHeight: 120,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
   },
+
   turnoCard: {
     flexDirection: 'row',
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
+
   turnoCardWithBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#E2E8F0',
   },
+
   turnoTimelineLeft: {
-    alignItems: 'center',
-    marginRight: 16,
     width: 24,
+    alignItems: 'center',
   },
+
   timelineDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: '#4C1D95',
-    marginTop: 4,
   },
+
   timelineLine: {
-    width: 2,
     flex: 1,
+    width: 2,
     backgroundColor: '#E2E8F0',
-    marginTop: 8,
   },
+
   turnoContent: {
     flex: 1,
+    marginLeft: 12,
   },
+
   turnoHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
   },
+
   turnoDate: {
-    fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
-    textTransform: 'capitalize',
   },
+
   turnoTime: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
     color: '#4C1D95',
-    marginTop: 2,
   },
+
   estadoBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 10,
   },
+
   estadoText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
+
   turnoDetails: {
-    gap: 8,
+    marginTop: 8,
+    gap: 4,
   },
+
   turnoDetailRow: {
     flexDirection: 'row',
+    gap: 6,
     alignItems: 'center',
-    gap: 8,
   },
+
   turnoDetailText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
   },
-  emptyState: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 120,
-  },
+
   emptyText: {
-    fontSize: 14,
+    textAlign: 'center',
     color: '#94A3B8',
-    marginTop: 12,
   },
 });

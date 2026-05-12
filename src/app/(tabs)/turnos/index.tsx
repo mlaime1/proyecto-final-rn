@@ -1,78 +1,69 @@
-import Card from '@/components/ui/Card';
+import React, { useEffect, useState, useCallback } from 'react';
+import { StyleSheet, Text, FlatList, RefreshControl } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import Screen from '@/components/ui/Screen';
-import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
-import { upcomingAppointments } from './data';
+import Card from '@/components/ui/Card';
+import { getTurnos, TurnoUI } from '@/services/turnos.service';
 
 export default function TurnosScreen() {
+  const [turnos, setTurnos] = useState<TurnoUI[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadTurnos = useCallback(async () => {
+    const data = await getTurnos();
+    setTurnos(data);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      await loadTurnos();
+      setLoading(false);
+    })();
+  }, [loadTurnos]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTurnos();
+    }, [loadTurnos])
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadTurnos();
+    setRefreshing(false);
+  };
+
+  if (loading) return <Text style={styles.center}>Cargando...</Text>;
+
   return (
     <Screen>
-      <View style={styles.list}>
-        {upcomingAppointments.length === 0 ? (
-          <Text style={styles.empty}>No hay turnos</Text>
-        ) : (
-          upcomingAppointments.map((turno) => (
-            <Card key={turno.id} turno={turno} onPress={() => router.push(`./turnos/${turno.id}`)} />
-          ))
-        )}
-      </View>
+      <FlatList
+        data={turnos}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => <Card turno={item} />}
+        ListEmptyComponent={<Text style={styles.empty}>No hay turnos</Text>}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    gap: 24,
-  },
-  header: {
-    gap: 8,
-  },
-  title: {
-    color: '#0F172A',
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  subtitle: {
-    color: '#64748B',
-    fontSize: 15,
-    lineHeight: 22,
-  },
   list: {
-    gap: 12,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
-    borderRadius: 18,
-    borderWidth: 1,
     padding: 16,
-  },
-  row: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  time: {
-    color: '#0284C7',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  service: {
-    color: '#334155',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  customer: {
-    color: '#0F172A',
-    fontSize: 16,
-    fontWeight: '600',
+    gap: 12,
   },
   empty: {
     textAlign: 'center',
     color: '#64748B',
-    fontSize: 16,
     marginTop: 20,
+  },
+  center: {
+    textAlign: 'center',
+    marginTop: 40,
   },
 });

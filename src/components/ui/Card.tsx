@@ -1,76 +1,40 @@
+import React from 'react';
+import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-type ClienteResumen = {
-  id: number;
-  nombre: string;
-};
-
-export type TurnoCardData = {
-  id: number;
-  created_at: string;
-  duracion: string;
-  estado: string;
-  inicio: string;
-  precio: number;
-  cliente_id: number;
-  emprendedor_id: number;
-  fin: string;
-  update_at: string;
-  servicio?: string;
-  cliente?: ClienteResumen | null;
-};
+import { TurnoUI } from '@/services/turnos.service';
 
 type Props = {
-  turno: TurnoCardData;
-  onPress?: (id: number) => void;
+  turno: TurnoUI;
 };
 
 function formatDate(date: string) {
-  const parsedDate = new Date(date);
-
-  return parsedDate.toLocaleString('es-AR', {
-    weekday: 'short',
+  const d = new Date(date);
+  return d.toLocaleString('es-AR', {
+    weekday: 'long',
     day: '2-digit',
-    month: 'short',
+    month: 'long',
     hour: '2-digit',
     minute: '2-digit',
   });
 }
 
-function formatPrice(price: number) {
-  return price.toLocaleString('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    maximumFractionDigits: 0,
-  });
-}
-
-function Card({ turno, onPress }: Props) {
-  const isPressable = typeof onPress === 'function';
-  const customerName = turno.cliente?.nombre ?? `Cliente #${turno.cliente_id}`;
+function Card({ turno }: Props) {
+  const router = useRouter();
 
   return (
     <TouchableOpacity
-      activeOpacity={isPressable ? 0.8 : 1}
-      disabled={!isPressable}
-      onPress={() => onPress?.(turno.id)}
       style={styles.card}
+      onPress={() => router.push(`/turno/${turno.id}`)}
     >
       <View style={styles.iconContainer}>
-        <Ionicons name="calendar-outline" size={22} color="#0F172A" />
+        <Ionicons name="cut-outline" size={22} color="#0F172A" />
       </View>
 
       <View style={styles.info}>
-        <View style={styles.row}>
-          <Text style={styles.customer}>{customerName}</Text>
-          <Text style={styles.status}>{turno.estado}</Text>
-        </View>
-
+        <Text style={styles.customer}>{turno.cliente_nombre}</Text>
+        <Text style={styles.service}>{turno.servicio_nombre}</Text>
         <Text style={styles.time}>{formatDate(turno.inicio)}</Text>
-        <Text style={styles.meta}>
-          Duracion: {turno.duracion} · {formatPrice(turno.precio)}
-        </Text>
       </View>
 
       <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
@@ -99,34 +63,20 @@ const styles = StyleSheet.create({
   },
   info: {
     flex: 1,
-    gap: 4,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
   },
   customer: {
-    color: '#0F172A',
     fontSize: 16,
     fontWeight: '700',
-    flex: 1,
+    color: '#0F172A',
   },
-  status: {
-    color: '#0284C7',
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'capitalize',
-  },
-  time: {
-    color: '#334155',
+  service: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#334155',
   },
-  meta: {
-    color: '#64748B',
+  time: {
     fontSize: 12,
+    color: '#64748B',
   },
 });
 

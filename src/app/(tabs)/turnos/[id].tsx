@@ -2,7 +2,7 @@ import Screen from '@/components/ui/Screen';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { upcomingAppointments } from './data';
+import { upcomingAppointments } from './_data';
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: 'Pendiente',

@@ -78,12 +78,19 @@ export async function getTurnos(): Promise<TurnoUI[]> {
 export async function getTurnoById(id: number) {
   const { data, error } = await supabase
     .from('Turno')
-    .select('*')
+    .select(`
+      *,
+      Cliente ( nombre ),
+      Servicio ( nombre, precio, duracion )
+    `)
     .eq('id', id)
     .single();
 
   if (error) throw new Error(error.message);
-  return data as Turno;
+  return data as Turno & {
+    Cliente: { nombre: string } | null;
+    Servicio: { nombre: string | null; precio: number | null; duracion: number | null } | null;
+  };
 }
 
 /* =========================
@@ -124,7 +131,7 @@ export async function createAppointment(data: CreateAppointmentData) {
   const { data: emprendedor } = await supabase
     .from('Emprendedor')
     .select('id')
-    .eq('user_id', userId)
+    .eq('users_id', userId)
     .single();
 
   if (!emprendedor) throw new Error('Emprendedor no encontrado');
@@ -136,7 +143,7 @@ export async function createAppointment(data: CreateAppointmentData) {
     .from('Cliente')
     .select('id')
     .eq('telefono', telefono)
-    .single();
+    .maybeSingle();
 
   if (existingCliente) {
     clienteId = existingCliente.id;

@@ -1,35 +1,107 @@
 import { supabase } from '@/lib/supabase';
 import { Database } from '@/types/database.types';
 
+/* =========================
+   Tipos base DB
+========================= */
 export type Turno = Database['public']['Tables']['Turno']['Row'];
 export type TurnoInsert = Database['public']['Tables']['Turno']['Insert'];
 export type TurnoUpdate = Database['public']['Tables']['Turno']['Update'];
 export type Servicio = Database['public']['Tables']['Servicio']['Row'];
 
-export async function getTurnos() {
-  const { data, error } = await supabase.from('Turno').select('*').order('inicio', { ascending: true });
-  if (error) {
-    throw new Error(error.message);
-  }
-  return data as Turno[];
+/* =========================
+   Tipo UI (con JOIN)
+========================= */
+export type TurnoUI = {
+  id: number;
+  inicio: string;
+  cliente_id: number;
+  servicio_id: number;
+  cliente_nombre: string;
+  servicio_nombre: string;
+  estado: string;
+};
+
+/* =========================
+   GET TURNOS (FILTRADO + JOIN)
+========================= */
+export async function getTurnos(): Promise<TurnoUI[]> {
+  // 1. usuario logueado
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  console.log(userId);
+  
+
+  if (!userId) return [];
+
+  // 2. obtener emprendedor
+  const { data: emprendedor, error: empError } = await supabase
+    .from('Emprendedor')
+    .select('id')
+    .eq('users_id', userId)
+    .single();
+
+  if (empError || !emprendedor) return [];
+
+  // 3. traer turnos del emprendedor
+  const { data, error } = await supabase
+    .from('Turno')
+    .select(`
+      id,
+      inicio,
+      cliente_id,
+      servicio_id,
+      estado,
+      Cliente ( nombre ),
+      Servicio ( nombre )
+    `)
+    .eq('emprendedor_id', emprendedor.id)
+    .order('inicio', { ascending: true });
+
+  if (error) throw new Error(error.message);
+
+  // 4. map a UI
+  return data.map((t: any) => ({
+    id: t.id,
+    inicio: t.inicio,
+    cliente_id: t.cliente_id,
+    servicio_id: t.servicio_id,
+    cliente_nombre: t.Cliente?.nombre ?? 'Sin cliente',
+    servicio_nombre: t.Servicio?.nombre ?? 'Sin servicio',
+    estado: t.estado ?? 'pendiente',
+  }));
 }
 
+/* =========================
+   GET POR ID
+========================= */
 export async function getTurnoById(id: number) {
-  const { data, error } = await supabase.from('Turno').select('*').eq('id', id).single();
-  if (error) {
-    throw new Error(error.message);
-  }
+  const { data, error } = await supabase
+    .from('Turno')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) throw new Error(error.message);
   return data as Turno;
 }
 
+/* =========================
+   SERVICIOS
+========================= */
 export async function getServicios() {
-  const { data, error } = await supabase.from('Servicio').select('*').order('id', { ascending: true });
-  if (error) {
-    throw new Error(error.message);
-  }
+  const { data, error } = await supabase
+    .from('Servicio')
+    .select('*')
+    .order('id', { ascending: true });
+
+  if (error) throw new Error(error.message);
   return data as Servicio[];
 }
 
+/* =========================
+   CREAR TURNO
+========================= */
 export type CreateAppointmentData = {
   nombre: string;
   apellido: string;
@@ -40,52 +112,69 @@ export type CreateAppointmentData = {
 };
 
 export async function createAppointment(data: CreateAppointmentData) {
-  const { nombre, apellido, telefono, servicio_id, inicio, emprendedor_id = 1 } = data;
+  const { nombre, apellido, telefono, servicio_id, inicio } = data;
 
+  // 1. usuario actual
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+
+  if (!userId) throw new Error('Usuario no autenticado');
+
+  // 2. obtener emprendedor
+  const { data: emprendedor } = await supabase
+    .from('Emprendedor')
+    .select('id')
+    .eq('user_id', userId)
+    .single();
+
+  if (!emprendedor) throw new Error('Emprendedor no encontrado');
+
+  // 3. buscar o crear cliente
   let clienteId: number;
 
-  const { data: existingCliente, error: findError } = await supabase
+  const { data: existingCliente } = await supabase
     .from('Cliente')
     .select('id')
     .eq('telefono', telefono)
     .single();
 
-  if (findError && findError.code !== 'PGRST116') {
-    throw new Error(findError.message);
-  }
-
   if (existingCliente) {
     clienteId = existingCliente.id;
   } else {
-    const { data: newCliente, error: createError } = await supabase
+    const { data: newCliente, error } = await supabase
       .from('Cliente')
-      .insert({ nombre: `${nombre} ${apellido}`.trim(), telefono })
+      .insert({
+        nombre: `${nombre} ${apellido}`.trim(),
+        telefono,
+      })
       .select('id')
       .single();
 
-    if (createError) throw new Error(createError.message);
+    if (error) throw new Error(error.message);
     clienteId = newCliente.id;
   }
 
-  const turnoData: TurnoInsert = {
-    cliente_id: clienteId,
-    emprendedor_id,
-    servicio_id,
-    inicio,
-    estado: 'confirmado',
-  };
-
-  const { data: createdTurno, error: turnoError } = await supabase
+  // 4. crear turno
+  const { data: createdTurno, error } = await supabase
     .from('Turno')
-    .insert(turnoData)
+    .insert({
+      cliente_id: clienteId,
+      servicio_id,
+      inicio,
+      emprendedor_id: emprendedor.id,
+      estado: 'confirmado',
+    })
     .select('*')
     .single();
 
-  if (turnoError) throw new Error(turnoError.message);
+  if (error) throw new Error(error.message);
 
   return createdTurno as Turno;
 }
 
+/* =========================
+   UPDATE
+========================= */
 export async function updateTurno(id: number, data: TurnoUpdate) {
   const { data: updatedTurno, error } = await supabase
     .from('Turno')
@@ -94,19 +183,21 @@ export async function updateTurno(id: number, data: TurnoUpdate) {
     .select('*')
     .single();
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
 
   return updatedTurno as Turno;
 }
 
+/* =========================
+   DELETE
+========================= */
 export async function deleteTurno(id: number) {
-  const { error } = await supabase.from('Turno').delete().eq('id', id);
+  const { error } = await supabase
+    .from('Turno')
+    .delete()
+    .eq('id', id);
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
 
   return true;
 }

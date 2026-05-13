@@ -6,6 +6,7 @@ import { getTurnoById, updateTurno } from '@/services/turnos.service';
 import { useEffect, useState } from 'react';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import AlertModal from '@/components/ui/AlertModal';
+import ModificarTurnoModal from '@/components/ui/ModificarTurnoModal';
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: 'Pendiente',
@@ -48,6 +49,7 @@ function formatTime(date: Date) {
   return date.toLocaleTimeString('es-AR', {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 }
 
@@ -69,6 +71,7 @@ export default function TurnoDetalleScreen() {
   const [updating, setUpdating] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ visible: boolean; status: string }>({ visible: false, status: '' });
   const [alertModal, setAlertModal] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({ visible: false, title: '', message: '', type: 'info' });
+  const [modificarModalVisible, setModificarModalVisible] = useState(false);
 
   useEffect(() => {
     if (!turnoId || isNaN(turnoId)) {
@@ -117,6 +120,33 @@ export default function TurnoDetalleScreen() {
 
   const handleUpdateStatus = (status: string) => {
     setConfirmModal({ visible: true, status });
+  };
+
+  const handleModificarTurno = async (data: { servicio_id: number; inicio: string }) => {
+    try {
+      setModificarModalVisible(false);
+      setUpdating(true);
+      await updateTurno(turnoId, data);
+      
+      const updated = await getTurnoById(turnoId);
+      setTurno(updated);
+
+      setAlertModal({
+        visible: true,
+        title: 'Éxito',
+        message: 'El turno fue modificado correctamente.',
+        type: 'success',
+      });
+    } catch (err: any) {
+      setAlertModal({
+        visible: true,
+        title: 'Error',
+        message: err.message || 'No se pudo modificar el turno.',
+        type: 'error',
+      });
+    } finally {
+      setUpdating(false);
+    }
   };
 
   if (loading) {
@@ -222,14 +252,7 @@ export default function TurnoDetalleScreen() {
         <TouchableOpacity style={styles.secondaryButton} onPress={() => {}}>
           <Text style={styles.secondaryButtonText}>Contactar por wsp</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => {
-          setAlertModal({
-            visible: true,
-            title: 'Próximamente',
-            message: 'Funcionalidad de modificar turno pendiente de implementación.',
-            type: 'info',
-          });
-        }}>
+        <TouchableOpacity style={styles.secondaryButton} onPress={() => setModificarModalVisible(true)}>
           <Text style={styles.secondaryButtonText}>Modificar turno</Text>
         </TouchableOpacity>
         {turno.estado !== 'cancelado' && (
@@ -265,6 +288,13 @@ export default function TurnoDetalleScreen() {
         message={alertModal.message}
         type={alertModal.type}
         onClose={() => setAlertModal({ ...alertModal, visible: false })}
+      />
+
+      <ModificarTurnoModal
+        visible={modificarModalVisible}
+        turno={turno}
+        onClose={() => setModificarModalVisible(false)}
+        onSave={handleModificarTurno}
       />
     </Screen>
   );

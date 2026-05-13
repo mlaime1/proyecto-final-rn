@@ -72,6 +72,47 @@ export async function getTurnos(): Promise<TurnoUI[]> {
   }));
 }
 
+export async function getTurnosPorDia(date: Date) {
+  const { data: session } = await supabase.auth.getSession();
+  const userId = session?.session?.user?.id;
+  if (!userId) return [];
+
+  const { data: emprendedor } = await supabase
+    .from('Emprendedor')
+    .select('id')
+    .eq('users_id', userId)
+    .single();
+
+  if (!emprendedor) return [];
+
+  const tzOffset = date.getTimezoneOffset() * 60000;
+  
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+  const startString = new Date(startOfDay.getTime() - tzOffset).toISOString().slice(0, -1);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+  const endString = new Date(endOfDay.getTime() - tzOffset).toISOString().slice(0, -1);
+
+  const { data, error } = await supabase
+    .from('Turno')
+    .select(`
+      id,
+      inicio,
+      estado,
+      Servicio ( duracion )
+    `)
+    .eq('emprendedor_id', emprendedor.id)
+    .neq('estado', 'cancelado')
+    .gte('inicio', startString)
+    .lte('inicio', endString);
+
+  if (error) throw new Error(error.message);
+
+  return data;
+}
+
 /* =========================
    GET POR ID
 ========================= */

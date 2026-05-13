@@ -12,7 +12,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { getServicios, type Servicio } from '@/services/turnos.service';
+import { getServicios, getTurnosPorDia, type Servicio } from '@/services/turnos.service';
 
 
 const TIME_SLOTS = [
@@ -69,10 +69,45 @@ export default function NuevoTurnoScreen() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [occupiedSlots, setOccupiedSlots] = useState<string[]>([]);
 
   useEffect(() => {
     loadServices();
   }, []);
+
+  useEffect(() => {
+    async function loadOccupied() {
+      try {
+        const turnos = await getTurnosPorDia(selectedDate);
+        const slots: string[] = [];
+        
+        turnos.forEach((t: any) => {
+          // Parse string (e.g. "2026-05-13T14:00:00" as local time)
+          const start = new Date(t.inicio);
+          const duration = t.Servicio?.duracion || 30;
+          
+          let current = new Date(start);
+          const end = new Date(start.getTime() + duration * 60000);
+          
+          while (current < end) {
+            const h = current.getHours().toString().padStart(2, '0');
+            const m = current.getMinutes().toString().padStart(2, '0');
+            slots.push(`${h}:${m}`);
+            current.setMinutes(current.getMinutes() + 30);
+          }
+        });
+        
+        setOccupiedSlots(slots);
+        // Deseleccionar si el turno seleccionado quedó ocupado
+        if (selectedTime && slots.includes(selectedTime)) {
+          setSelectedTime(null);
+        }
+      } catch (err) {
+        console.error('Error cargando turnos del dia:', err);
+      }
+    }
+    loadOccupied();
+  }, [selectedDate]);
 
   const loadServices = async () => {
     try {
@@ -244,23 +279,47 @@ export default function NuevoTurnoScreen() {
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Horarios disponibles</Text>
           <View style={styles.timeGrid}>
-            {TIME_SLOTS.map((time) => (
-              <TouchableOpacity
-                key={time}
-                style={[styles.timeSlot, selectedTime === time && styles.timeSlotSelected]}
-                onPress={() => setSelectedTime(time === selectedTime ? null : time)}
-                activeOpacity={0.75}
-              >
-                <Text
+            {TIME_SLOTS.map((time) => {
+              const isOccupied = occupiedSlots.includes(time);
+              
+              const now = new Date();
+              const isToday = selectedDate.getDate() === now.getDate() && 
+                              selectedDate.getMonth() === now.getMonth() && 
+                              selectedDate.getFullYear() === now.getFullYear();
+              let isPast = false;
+              if (isToday) {
+                const [h, m] = time.split(':').map(Number);
+                if (h < now.getHours() || (h === now.getHours() && m <= now.getMinutes())) {
+                  isPast = true;
+                }
+              }
+              
+              const isDisabled = isOccupied || isPast;
+
+              return (
+                <TouchableOpacity
+                  key={time}
                   style={[
-                    styles.timeSlotText,
-                    selectedTime === time && styles.timeSlotTextSelected,
+                    styles.timeSlot,
+                    selectedTime === time && styles.timeSlotSelected,
+                    isDisabled && styles.timeSlotDisabled
                   ]}
+                  onPress={() => setSelectedTime(time === selectedTime ? null : time)}
+                  activeOpacity={0.75}
+                  disabled={isDisabled}
                 >
-                  {time}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.timeSlotText,
+                      selectedTime === time && styles.timeSlotTextSelected,
+                      isDisabled && styles.timeSlotTextDisabled
+                    ]}
+                  >
+                    {time}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
       </ScrollView>
@@ -397,26 +456,44 @@ const styles = StyleSheet.create({
   timeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
+    gap: 12,
   },
   timeSlot: {
     width: '22%',
-    paddingVertical: 10,
-    backgroundColor: '#FFE500',
-    borderRadius: 8,
+    paddingVertical: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   timeSlotSelected: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  timeSlotDisabled: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#F1F5F9',
+    opacity: 0.6,
   },
   timeSlotText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#334155',
   },
   timeSlotTextSelected: {
     color: '#FFFFFF',
+  },
+  timeSlotTextDisabled: {
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
   },
   bottomBar: {
     position: 'absolute',

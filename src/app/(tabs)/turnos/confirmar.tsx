@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
+import { createAppointment } from '@/services/turnos.service';
 import {
     Alert,
     KeyboardAvoidingView,
+    Modal,
     Platform,
     ScrollView,
     StatusBar,
@@ -60,6 +62,7 @@ export default function ConfirmarTurnoScreen() {
   const [apellido, setApellido] = useState('');
   const [telefono, setTelefono] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const canReserve = nombre.trim() && apellido.trim() && telefono.trim().length >= 8;
 
@@ -67,15 +70,21 @@ export default function ConfirmarTurnoScreen() {
     if (!canReserve) return;
     setLoading(true);
     try {
-      // TODO: conectar con API en próximo ticket
-      await new Promise((r) => globalThis.setTimeout(r, 800));
-      Alert.alert(
-        '¡Turno reservado!',
-        `${params.serviceName}\n${formattedDate} · ${params.time} hs\n\n${nombre} ${apellido}`,
-        [{ text: 'OK', onPress: () => router.push('./') }],
-      );
-    } catch {
-      Alert.alert('Error', 'No se pudo confirmar el turno. Intentá de nuevo.');
+      const [h, m] = params.time.split(':').map(Number);
+      const startDateTime = new Date(date);
+      startDateTime.setHours(h, m, 0, 0);
+
+      await createAppointment({
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        telefono: parseInt(telefono, 10),
+        servicio_id: parseInt(params.serviceId, 10),
+        inicio: startDateTime.toISOString(),
+      });
+
+      setShowSuccessModal(true);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'No se pudo confirmar el turno. Intentá de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -183,6 +192,34 @@ export default function ConfirmarTurnoScreen() {
           <Text style={styles.reserveButtonText}>{loading ? 'Reservando...' : 'Reservar'}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <Ionicons name="checkmark-circle" size={64} color="#34C759" />
+            </View>
+            <Text style={styles.modalTitle}>¡Turno reservado!</Text>
+            <Text style={styles.modalMessage}>
+              Tu turno para {params.serviceName} el {formattedDate} a las {params.time} hs ha sido confirmado.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setShowSuccessModal(false);
+                router.navigate('/(tabs)/turnos');
+              }}
+            >
+              <Text style={styles.modalButtonText}>Ver mis turnos</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -291,5 +328,53 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '80%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  modalIconContainer: {
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: '#636366',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButton: {
+    backgroundColor: '#1C1C1E',
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

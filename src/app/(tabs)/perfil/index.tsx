@@ -1,6 +1,8 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import Screen from '@/components/ui/Screen';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '@/hooks/useAuth';
 
 const profileItems = [
   { label: 'Emprendimiento', value: 'Studio Norte' },
@@ -10,9 +12,25 @@ const profileItems = [
 ];
 
 export default function PerfilScreen() {
+  const { signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   return (
-    <Screen>
-      <View style={styles.container}>
+    <SafeAreaView style={styles.safe} edges={['top', 'right', 'left', 'bottom']}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.hero}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>SN</Text>
@@ -29,20 +47,52 @@ export default function PerfilScreen() {
             </View>
           ))}
         </View>
+      </ScrollView>
+
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[styles.logoutButton, signingOut && styles.logoutButtonDisabled]}
+          onPress={handleSignOut}
+          disabled={signingOut}
+        >
+          {signingOut ? (
+            <ActivityIndicator color="#DC2626" />
+          ) : (
+            <>
+              <Ionicons name="log-out" size={18} color="#DC2626" />
+              <Text style={styles.logoutText}>Cerrar sesión</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
-    </Screen>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
     gap: 24,
   },
   hero: {
     alignItems: 'center',
     gap: 10,
-    paddingTop: 12,
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
   },
   avatar: {
     alignItems: 'center',
@@ -89,6 +139,26 @@ const styles = StyleSheet.create({
   },
   value: {
     color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#DC2626',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+    backgroundColor: 'transparent',
+  },
+  logoutButtonDisabled: {
+    opacity: 0.6,
+  },
+  logoutText: {
+    color: '#DC2626',
     fontSize: 16,
     fontWeight: '600',
   },

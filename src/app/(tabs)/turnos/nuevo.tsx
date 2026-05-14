@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
     Platform,
     ScrollView,
     StatusBar,
@@ -10,12 +12,8 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { getServicios, type Servicio } from '@/services/turnos.service';
 
-const SERVICES = [
-  { id: '1', name: 'Corte de pelo', price: 15000, duration: 30 },
-  { id: '2', name: 'Barba', price: 8000, duration: 20 },
-  { id: '3', name: 'Corte + Barba', price: 20000, duration: 50 },
-];
 
 const TIME_SLOTS = [
   '10:00',
@@ -64,11 +62,29 @@ function formatDateLong(date: Date): string {
 }
 
 export default function NuevoTurnoScreen() {
-  const [selectedService, setSelectedService] = useState<(typeof SERVICES)[0] | null>(null);
+  const [services, setServices] = useState<Servicio[]>([]);
+  const [loadingServices, setLoadingServices] = useState(true);
+  const [selectedService, setSelectedService] = useState<Servicio | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  useEffect(() => {
+    loadServices();
+  }, []);
+
+  const loadServices = async () => {
+    try {
+      setLoadingServices(true);
+      const data = await getServicios();
+      setServices(data);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudieron cargar los servicios.');
+    } finally {
+      setLoadingServices(false);
+    }
+  };
 
   const availableDays: Date[] = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
@@ -85,10 +101,10 @@ export default function NuevoTurnoScreen() {
     router.push({
       pathname: './confirmar',
       params: {
-        serviceId: selectedService.id,
-        serviceName: selectedService.name,
-        servicePrice: selectedService.price.toString(),
-        serviceDuration: selectedService.duration.toString(),
+        serviceId: selectedService.id.toString(),
+        serviceName: selectedService.nombre ?? '',
+        servicePrice: selectedService.precio?.toString() ?? '0',
+        serviceDuration: selectedService.duracion?.toString() ?? '0',
         date: selectedDate.toISOString(),
         time: selectedTime,
       },
@@ -127,7 +143,7 @@ export default function NuevoTurnoScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.dropdownText, !selectedService && styles.placeholder]}>
-              {selectedService ? selectedService.name : 'Seleccionar'}
+              {selectedService ? selectedService.nombre : 'Seleccionar'}
             </Text>
             <Ionicons
               name={showServiceDropdown ? 'chevron-up' : 'chevron-down'}
@@ -138,30 +154,36 @@ export default function NuevoTurnoScreen() {
 
           {showServiceDropdown && (
             <View style={styles.dropdownMenu}>
-              {SERVICES.map((s) => (
-                <TouchableOpacity
-                  key={s.id}
-                  style={[
-                    styles.dropdownItem,
-                    selectedService?.id === s.id && styles.dropdownItemSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedService(s);
-                    setShowServiceDropdown(false);
-                    setSelectedTime(null);
-                  }}
-                >
-                  <Text
+              {loadingServices ? (
+                <View style={{ padding: 16, alignItems: 'center' }}>
+                  <ActivityIndicator color="#007AFF" />
+                </View>
+              ) : (
+                services.map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
                     style={[
-                      styles.dropdownItemText,
-                      selectedService?.id === s.id && styles.dropdownItemTextSelected,
+                      styles.dropdownItem,
+                      selectedService?.id === s.id && styles.dropdownItemSelected,
                     ]}
+                    onPress={() => {
+                      setSelectedService(s);
+                      setShowServiceDropdown(false);
+                      setSelectedTime(null);
+                    }}
                   >
-                    {s.name}
-                  </Text>
-                  <Text style={styles.dropdownItemPrice}>${s.price.toLocaleString('es-AR')}</Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.dropdownItemText,
+                        selectedService?.id === s.id && styles.dropdownItemTextSelected,
+                      ]}
+                    >
+                      {s.nombre}
+                    </Text>
+                    <Text style={styles.dropdownItemPrice}>${s.precio?.toLocaleString('es-AR') ?? 0}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
           )}
         </View>
@@ -247,10 +269,10 @@ export default function NuevoTurnoScreen() {
       <View style={styles.bottomBar}>
         <View style={styles.bottomInfo}>
           <Text style={styles.bottomService}>
-            {selectedService ? selectedService.name : 'Servicio'}
+            {selectedService ? selectedService.nombre : 'Servicio'}
           </Text>
           {selectedService && (
-            <Text style={styles.bottomPrice}>${selectedService.price.toLocaleString('es-AR')}</Text>
+            <Text style={styles.bottomPrice}>${selectedService.precio?.toLocaleString('es-AR') ?? 0}</Text>
           )}
           <Text style={styles.bottomDateTime}>
             {formatDateLong(selectedDate)} · {selectedTime ?? '--:--'} hs

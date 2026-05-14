@@ -16,6 +16,7 @@ function formatDate(date: string) {
     month: 'long',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
 }
 
@@ -25,7 +26,7 @@ function Card({ turno }: Props) {
   return (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => router.push(`/turno/${turno.id}`)}
+      onPress={() => router.push(`/turnos/${turno.id}`)}
     >
       <View style={styles.iconContainer}>
         <Ionicons name="cut-outline" size={22} color="#0F172A" />

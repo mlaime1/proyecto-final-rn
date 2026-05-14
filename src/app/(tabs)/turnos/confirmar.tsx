@@ -74,12 +74,15 @@ export default function ConfirmarTurnoScreen() {
       const startDateTime = new Date(date);
       startDateTime.setHours(h, m, 0, 0);
 
+      const tzOffset = startDateTime.getTimezoneOffset() * 60000;
+      const localISOTime = new Date(startDateTime.getTime() - tzOffset).toISOString().slice(0, -1);
+
       await createAppointment({
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         telefono: parseInt(telefono, 10),
         servicio_id: parseInt(params.serviceId, 10),
-        inicio: startDateTime.toISOString(),
+        inicio: localISOTime,
       });
 
       setShowSuccessModal(true);

@@ -22,6 +22,16 @@ export type TurnoUI = {
   estado: string;
 };
 
+type TurnoConRelaciones = {
+  id: number;
+  inicio: string;
+  cliente_id: number;
+  servicio_id: number;
+  estado: string | null;
+  Cliente: { nombre: string | null } | null;
+  Servicio: { nombre: string | null } | null;
+};
+
 /* =========================
    GET TURNOS (FILTRADO + JOIN)
 ========================= */
@@ -29,8 +39,6 @@ export async function getTurnos(): Promise<TurnoUI[]> {
   // 1. usuario logueado
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
-  console.log(userId);
-  
 
   if (!userId) return [];
 
@@ -46,7 +54,8 @@ export async function getTurnos(): Promise<TurnoUI[]> {
   // 3. traer turnos del emprendedor
   const { data, error } = await supabase
     .from('Turno')
-    .select(`
+    .select(
+      `
       id,
       inicio,
       cliente_id,
@@ -54,14 +63,15 @@ export async function getTurnos(): Promise<TurnoUI[]> {
       estado,
       Cliente ( nombre ),
       Servicio ( nombre )
-    `)
+    `,
+    )
     .eq('emprendedor_id', emprendedor.id)
     .order('inicio', { ascending: true });
 
   if (error) throw new Error(error.message);
 
   // 4. map a UI
-  return data.map((t: any) => ({
+  return ((data ?? []) as TurnoConRelaciones[]).map((t) => ({
     id: t.id,
     inicio: t.inicio,
     cliente_id: t.cliente_id,
@@ -76,11 +86,7 @@ export async function getTurnos(): Promise<TurnoUI[]> {
    GET POR ID
 ========================= */
 export async function getTurnoById(id: number) {
-  const { data, error } = await supabase
-    .from('Turno')
-    .select('*')
-    .eq('id', id)
-    .single();
+  const { data, error } = await supabase.from('Turno').select('*').eq('id', id).single();
 
   if (error) throw new Error(error.message);
   return data as Turno;
@@ -124,7 +130,7 @@ export async function createAppointment(data: CreateAppointmentData) {
   const { data: emprendedor } = await supabase
     .from('Emprendedor')
     .select('id')
-    .eq('user_id', userId)
+    .eq('users_id', userId)
     .single();
 
   if (!emprendedor) throw new Error('Emprendedor no encontrado');
@@ -192,10 +198,7 @@ export async function updateTurno(id: number, data: TurnoUpdate) {
    DELETE
 ========================= */
 export async function deleteTurno(id: number) {
-  const { error } = await supabase
-    .from('Turno')
-    .delete()
-    .eq('id', id);
+  const { error } = await supabase.from('Turno').delete().eq('id', id);
 
   if (error) throw new Error(error.message);
 

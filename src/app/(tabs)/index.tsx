@@ -3,8 +3,8 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getEmprendedor } from '@/services/emprendedor.service';
 import { getTurnos, TurnoUI } from '@/services/turnos.service';
-import { log } from '@/lib/logger';
 
 /* =========================
    Helpers
@@ -126,21 +126,23 @@ export default function Home() {
   const router = useRouter();
   const [turnos, setTurnos] = useState<TurnoUI[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const userName = 'Juan Pablo';
+  const [userName, setUserName] = useState('Emprendedor');
 
   useEffect(() => {
-    loadTurnos();
+    loadHomeData();
   }, []);
 
-  const loadTurnos = async () => {
+  const loadHomeData = async () => {
     try {
-      const data = await getTurnos();
-      console.log(data);
-      
-      setTurnos(data);
-    } catch (e) {
-      console.log(e);
+      const [turnosData, emprendedor] = await Promise.all([getTurnos(), getEmprendedor()]);
+
+      setTurnos(turnosData);
+
+      if (emprendedor?.nombre) {
+        setUserName(emprendedor.nombre);
+      }
+    } catch {
+      setTurnos([]);
     } finally {
       setLoading(false);
     }
@@ -153,7 +155,10 @@ export default function Home() {
         <View style={styles.profileSection}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {userName.split(' ').map((n) => n[0]).join('')}
+              {userName
+                .split(' ')
+                .map((n) => n[0])
+                .join('')}
             </Text>
           </View>
           <Text style={styles.greeting}>Hola, {userName}</Text>
@@ -166,7 +171,10 @@ export default function Home() {
             <Text style={styles.actionCardLabel}>Turnos</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(tabs)/turnos/nuevo')}>
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => router.push('/(tabs)/turnos/nuevo')}
+          >
             <MaterialIcons name="add-circle-outline" size={24} color="#4C1D95" />
             <Text style={styles.actionCardLabel}>Nuevo</Text>
           </TouchableOpacity>
@@ -188,11 +196,7 @@ export default function Home() {
               <Text style={styles.emptyText}>No hay turnos</Text>
             ) : (
               turnos.map((turno, index) => (
-                <TurnoCard
-                  key={turno.id}
-                  turno={turno}
-                  isLast={index === turnos.length - 1}
-                />
+                <TurnoCard key={turno.id} turno={turno} isLast={index === turnos.length - 1} />
               ))
             )}
           </View>

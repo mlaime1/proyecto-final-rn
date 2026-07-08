@@ -1,7 +1,7 @@
 import Screen from '@/components/ui/Screen';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getTurnoById, updateTurno } from '@/services/turnos.service';
 import { useEffect, useState } from 'react';
 import ConfirmModal from '@/components/ui/ConfirmModal';
@@ -98,7 +98,7 @@ export default function TurnoDetalleScreen() {
   const executeStatusUpdate = async (status: string) => {
     try {
       setUpdating(true);
-      await updateTurno(turnoId, { estado: status as any });
+      await updateTurno(turnoId, { estado: status as 'pendiente' | 'confirmado' | 'completado' | 'cancelado' | 'ausente' });
       setTurno((prev: any) => ({ ...prev, estado: status }));
       setAlertModal({
         visible: true,

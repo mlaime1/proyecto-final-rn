@@ -106,7 +106,7 @@ export default function ModificarTurnoModal({ visible, turno, onClose, onSave }:
         const currentService = data.find(s => s.id === turno.servicio_id);
         if (currentService) setSelectedService(currentService);
       }
-    } catch (error) {
+    } catch {
       // Ignorar
     } finally {
       setLoadingServices(false);

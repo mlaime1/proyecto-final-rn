@@ -146,7 +146,15 @@ export default function NuevoTurnoScreen() {
   function handleNext() {
     if (!selectedService || !selectedTime) return;
 
-    // Pasamos los datos como search params (strings)
+    const [h, m] = selectedTime.split(':').map(Number);
+    const selectedDateTime = new Date(selectedDate);
+    selectedDateTime.setHours(h, m, 0, 0);
+
+    if (selectedDateTime < new Date()) {
+      Alert.alert('Horario no válido', 'No podés reservar un turno en el pasado.');
+      return;
+    }
+
     router.push({
       pathname: './confirmar',
       params: {

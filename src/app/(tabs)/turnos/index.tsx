@@ -4,7 +4,6 @@ import { useFocusEffect } from 'expo-router';
 import Screen from '@/components/ui/Screen';
 import Card from '@/components/ui/Card';
 import { getTurnos, TurnoUI } from '@/services/turnos.service';
-import { router } from 'expo-router';
 
 export default function TurnosScreen() {
   const [turnos, setTurnos] = useState<TurnoUI[]>([]);

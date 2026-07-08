@@ -1,19 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
-
-const profileItems = [
-  { label: 'Emprendimiento', value: 'Studio Norte' },
-  { label: 'Rubro', value: 'Belleza y cuidado personal' },
-  { label: 'Telefono', value: '+54 9 11 5555 1234' },
-  { label: 'Email', value: 'contacto@studionorte.com' },
-];
+import { Emprendedor, ensureEmprendedor } from '@/services/emprendedor.service';
 
 export default function PerfilScreen() {
-  const { signOut } = useAuth();
+  const { signOut, session } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const [emprendedor, setEmprendedor] = useState<Emprendedor | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -24,6 +20,29 @@ export default function PerfilScreen() {
     }
   };
 
+  useEffect(() => {
+    let mounted = true;
+    ensureEmprendedor()
+      .then((data) => {
+        if (mounted) setEmprendedor(data);
+      })
+      .catch(() => {
+        // silent fail
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const profileItems = [
+    { label: 'Emprendimiento', value: emprendedor?.nombre || 'Mi Negocio' },
+    { label: 'Rubro', value: emprendedor?.descripcion || 'Barbería' },
+    { label: 'Email', value: session?.user?.email || 'No disponible' },
+  ];
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'right', 'left', 'bottom']}>
       <ScrollView
@@ -33,11 +52,20 @@ export default function PerfilScreen() {
       >
         <View style={styles.hero}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>SN</Text>
+            <Text style={styles.avatarText}>
+              {(emprendedor?.nombre || 'MN')
+                .split(' ')
+                .map((n) => n[0])
+                .join('')
+                .slice(0, 2)
+                .toUpperCase()}
+            </Text>
           </View>
           <Text style={styles.title}>Mi Perfil</Text>
           <Text style={styles.subtitle}>Gestiona la informacion principal de tu negocio.</Text>
         </View>
+
+        {loading && <ActivityIndicator color="#0EA5E9" />}
 
         <View style={styles.card}>
           {profileItems.map((item) => (

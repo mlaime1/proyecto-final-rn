@@ -58,18 +58,6 @@ export default function LayoutTabs() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="movies"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="categories"
-        options={{
-          href: null,
-        }}
-      />
     </Tabs>
   );
 }

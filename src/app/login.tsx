@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { View, TextInput, StyleSheet, ActivityIndicator, TouchableOpacity, Text, KeyboardAvoidingView, ScrollView, Platform } from 'react-native'
-import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '@/hooks/useAuth'
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
 export default function LoginScreen() {
-  const router = useRouter()
   const { signIn, error } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -16,6 +18,16 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!email || !password) {
       setLocalError('Por favor completa todos los campos')
+      return
+    }
+
+    if (!isValidEmail(email)) {
+      setLocalError('Ingresá un email válido')
+      return
+    }
+
+    if (password.length < 6) {
+      setLocalError('La contraseña debe tener al menos 6 caracteres')
       return
     }
 
@@ -105,13 +117,6 @@ export default function LoginScreen() {
               <Text style={styles.buttonText}>Entrar</Text>
             )}
           </TouchableOpacity>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>¿No tenés cuenta? </Text>
-            <TouchableOpacity onPress={() => router.push('/register')} disabled={submitting}>
-              <Text style={styles.link}>Registrate</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

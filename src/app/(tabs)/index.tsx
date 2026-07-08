@@ -3,7 +3,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getEmprendedor } from '@/services/emprendedor.service';
+import { ensureEmprendedor } from '@/services/emprendedor.service';
 import { getTurnos, TurnoUI } from '@/services/turnos.service';
 
 /* =========================
@@ -135,7 +135,7 @@ export default function Home() {
 
   const loadHomeData = async () => {
     try {
-      const [turnosData, emprendedor] = await Promise.all([getTurnos(), getEmprendedor()]);
+      const [turnosData, emprendedor] = await Promise.all([getTurnos(), ensureEmprendedor()]);
 
       setTurnos(turnosData);
 

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getEmprendedor } from '@/services/emprendedor.service';
 import { Database } from '@/types/database.types';
 
 /* =========================
@@ -39,32 +40,48 @@ type TurnoPorDia = {
   Servicio: { duracion: number | null } | null;
 };
 
+const BOOKABLE_STATUSES = ['confirmado', 'pendiente'];
+const VALID_ESTADOS = ['pendiente', 'confirmado', 'completado', 'cancelado', 'ausente'] as const;
+type EstadoTurno = (typeof VALID_ESTADOS)[number];
+
 /* =========================
-   GET TURNOS (FILTRADO + JOIN)
+   Helpers
+========================= */
+async function getCurrentEmprendedor() {
+  const emprendedor = await getEmprendedor();
+  if (!emprendedor) {
+    throw new Error('No se encontró tu perfil. Verificá tu cuenta o contactá soporte.');
+  }
+  return emprendedor;
+}
+
+function validateEstado(estado: unknown): EstadoTurno {
+  if (typeof estado !== 'string' || !VALID_ESTADOS.includes(estado as EstadoTurno)) {
+    throw new Error('Estado de turno no válido.');
+  }
+  return estado as EstadoTurno;
+}
+
+function normalizeDateBounds(date: Date) {
+  const tzOffset = date.getTimezoneOffset() * 60000;
+
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+  const startString = new Date(startOfDay.getTime() - tzOffset).toISOString().slice(0, -1);
+
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+  const endString = new Date(endOfDay.getTime() - tzOffset).toISOString().slice(0, -1);
+
+  return { startString, endString };
+}
+
+/* =========================
+   GET TURNOS
 ========================= */
 export async function getTurnos(): Promise<TurnoUI[]> {
-  // 1. usuario logueado
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
+  const emprendedor = await getCurrentEmprendedor();
 
-  if (!userId) return [];
-
-  // 2. obtener emprendedor
-  const { data: emprendedor, error: empError } = await supabase
-    .from('Emprendedor')
-    .select('id')
-    .eq('users_id', userId)
-    .maybeSingle();
-
-  if (empError) {
-    throw new Error('No se pudo cargar tu perfil de emprendedor.');
-  }
-
-  if (!emprendedor) {
-    throw new Error('No se encontró tu perfil de emprendedor. Verificá tu cuenta o contactá soporte.');
-  }
-
-  // 3. traer turnos del emprendedor
   const { data, error } = await supabase
     .from('Turno')
     .select(
@@ -81,9 +98,8 @@ export async function getTurnos(): Promise<TurnoUI[]> {
     .eq('emprendedor_id', emprendedor.id)
     .order('inicio', { ascending: true });
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error('No se pudieron cargar los turnos.');
 
-  // 4. map a UI
   return ((data ?? []) as unknown as TurnoConRelaciones[]).map((t) => ({
     id: t.id,
     inicio: t.inicio,
@@ -95,37 +111,12 @@ export async function getTurnos(): Promise<TurnoUI[]> {
   }));
 }
 
+/* =========================
+   GET TURNOS POR DIA
+========================= */
 export async function getTurnosPorDia(date: Date): Promise<TurnoPorDia[]> {
-  // Use getUser() for a secure server-validated session check.
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
-  if (userError || !userId) {
-    throw new Error('Usuario no autenticado');
-  }
-
-  const { data: emprendedor, error: empError } = await supabase
-    .from('Emprendedor')
-    .select('id')
-    .eq('users_id', userId)
-    .maybeSingle();
-
-  if (empError) {
-    throw new Error('No se pudo cargar tu perfil de emprendedor.');
-  }
-
-  if (!emprendedor) {
-    throw new Error('No se encontró tu perfil de emprendedor. Verificá tu cuenta o contactá soporte.');
-  }
-
-  const tzOffset = date.getTimezoneOffset() * 60000;
-  
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  const startString = new Date(startOfDay.getTime() - tzOffset).toISOString().slice(0, -1);
-
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-  const endString = new Date(endOfDay.getTime() - tzOffset).toISOString().slice(0, -1);
+  const emprendedor = await getCurrentEmprendedor();
+  const { startString, endString } = normalizeDateBounds(date);
 
   const { data, error } = await supabase
     .from('Turno')
@@ -136,11 +127,11 @@ export async function getTurnosPorDia(date: Date): Promise<TurnoPorDia[]> {
       Servicio ( duracion )
     `)
     .eq('emprendedor_id', emprendedor.id)
-    .neq('estado', 'cancelado')
+    .in('estado', BOOKABLE_STATUSES)
     .gte('inicio', startString)
     .lte('inicio', endString);
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error('No se pudieron cargar los horarios ocupados.');
 
   return (data ?? []) as unknown as TurnoPorDia[];
 }
@@ -149,6 +140,8 @@ export async function getTurnosPorDia(date: Date): Promise<TurnoPorDia[]> {
    GET POR ID
 ========================= */
 export async function getTurnoById(id: number) {
+  const emprendedor = await getCurrentEmprendedor();
+
   const { data, error } = await supabase
     .from('Turno')
     .select(`
@@ -157,9 +150,12 @@ export async function getTurnoById(id: number) {
       Servicio ( nombre, precio, duracion )
     `)
     .eq('id', id)
-    .single();
+    .eq('emprendedor_id', emprendedor.id)
+    .maybeSingle();
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error('No se pudo cargar el turno.');
+  if (!data) throw new Error('Turno no encontrado.');
+
   return data as Turno & {
     Cliente: { nombre: string } | null;
     Servicio: { nombre: string | null; precio: number | null; duracion: number | null } | null;
@@ -175,7 +171,7 @@ export async function getServicios() {
     .select('*')
     .order('id', { ascending: true });
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error('No se pudieron cargar los servicios.');
   return data as Servicio[];
 }
 
@@ -188,63 +184,67 @@ export type CreateAppointmentData = {
   telefono: number;
   servicio_id: number;
   inicio: string;
-  emprendedor_id?: number;
 };
 
 export async function createAppointment(data: CreateAppointmentData) {
   const { nombre, apellido, telefono, servicio_id, inicio } = data;
+  const emprendedor = await getCurrentEmprendedor();
 
-  // 1. usuario actual
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
-
-  if (!userId) throw new Error('Usuario no autenticado');
-
-  // 2. obtener emprendedor
-  const { data: emprendedor, error: empError } = await supabase
-    .from('Emprendedor')
-    .select('id')
-    .eq('users_id', userId)
+  // 1. obtener duración del servicio
+  const { data: servicio, error: servicioError } = await supabase
+    .from('Servicio')
+    .select('duracion')
+    .eq('id', servicio_id)
     .maybeSingle();
 
-  if (empError) {
-    throw new Error('No se pudo cargar tu perfil de emprendedor.');
+  if (servicioError || !servicio) {
+    throw new Error('El servicio seleccionado no es válido.');
   }
 
-  if (!emprendedor) {
-    throw new Error('No se encontró tu perfil de emprendedor. Verificá tu cuenta o contactá soporte.');
+  const duracionMinutos = servicio.duracion ?? 30;
+  const inicioDate = new Date(inicio);
+  const finDate = new Date(inicioDate.getTime() + duracionMinutos * 60000);
+
+  if (inicioDate < new Date()) {
+    throw new Error('No se pueden crear turnos en el pasado.');
   }
 
-  // 3. buscar o crear cliente
-  let clienteId: number;
+  // 2. verificar que el horario esté libre (defensa en profundidad)
+  const { data: overlapping, error: overlapError } = await supabase
+    .from('Turno')
+    .select('id, inicio, Servicio(duracion)')
+    .eq('emprendedor_id', emprendedor.id)
+    .in('estado', BOOKABLE_STATUSES)
+    .lt('inicio', finDate.toISOString())
+    .gte('inicio', inicioDate.toISOString());
 
-  const { data: existingCliente } = await supabase
+  if (overlapError) throw new Error('No se pudo verificar la disponibilidad del horario.');
+  if (overlapping && overlapping.length > 0) {
+    throw new Error('El horario seleccionado ya no está disponible.');
+  }
+
+  // 3. buscar o crear cliente (upsert para evitar duplicados por race condition)
+  const { data: upsertedCliente, error: clienteError } = await supabase
     .from('Cliente')
-    .select('id')
-    .eq('telefono', telefono)
-    .maybeSingle();
-
-  if (existingCliente) {
-    clienteId = existingCliente.id;
-  } else {
-    const { data: newCliente, error } = await supabase
-      .from('Cliente')
-      .insert({
+    .upsert(
+      {
         nombre: `${nombre} ${apellido}`.trim(),
         telefono,
-      })
-      .select('id')
-      .single();
+      },
+      { onConflict: 'telefono' },
+    )
+    .select('id')
+    .single();
 
-    if (error) throw new Error(error.message);
-    clienteId = newCliente.id;
+  if (clienteError || !upsertedCliente) {
+    throw new Error('No se pudo guardar los datos del cliente.');
   }
 
   // 4. crear turno
   const { data: createdTurno, error } = await supabase
     .from('Turno')
     .insert({
-      cliente_id: clienteId,
+      cliente_id: upsertedCliente.id,
       servicio_id,
       inicio,
       emprendedor_id: emprendedor.id,
@@ -253,7 +253,12 @@ export async function createAppointment(data: CreateAppointmentData) {
     .select('*')
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.message?.includes('unique')) {
+      throw new Error('El horario seleccionado ya fue reservado.');
+    }
+    throw new Error('No se pudo crear el turno.');
+  }
 
   return createdTurno as Turno;
 }
@@ -261,15 +266,35 @@ export async function createAppointment(data: CreateAppointmentData) {
 /* =========================
    UPDATE
 ========================= */
-export async function updateTurno(id: number, data: TurnoUpdate) {
+export async function updateTurno(
+  id: number,
+  changes: Pick<TurnoUpdate, 'servicio_id' | 'inicio' | 'estado'>,
+) {
+  const emprendedor = await getCurrentEmprendedor();
+
+  const payload: Partial<TurnoUpdate> = {};
+  if (changes.servicio_id !== undefined) payload.servicio_id = changes.servicio_id;
+  if (changes.inicio !== undefined) payload.inicio = changes.inicio;
+  if (changes.estado !== undefined) payload.estado = validateEstado(changes.estado);
+
+  if (Object.keys(payload).length === 0) {
+    throw new Error('No hay cambios para aplicar.');
+  }
+
   const { data: updatedTurno, error } = await supabase
     .from('Turno')
-    .update(data)
+    .update(payload)
     .eq('id', id)
+    .eq('emprendedor_id', emprendedor.id)
     .select('*')
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.message?.includes('unique')) {
+      throw new Error('El nuevo horario ya está reservado.');
+    }
+    throw new Error('No se pudo actualizar el turno.');
+  }
 
   return updatedTurno as Turno;
 }
@@ -278,9 +303,15 @@ export async function updateTurno(id: number, data: TurnoUpdate) {
    DELETE
 ========================= */
 export async function deleteTurno(id: number) {
-  const { error } = await supabase.from('Turno').delete().eq('id', id);
+  const emprendedor = await getCurrentEmprendedor();
 
-  if (error) throw new Error(error.message);
+  const { error } = await supabase
+    .from('Turno')
+    .delete()
+    .eq('id', id)
+    .eq('emprendedor_id', emprendedor.id);
+
+  if (error) throw new Error('No se pudo eliminar el turno.');
 
   return true;
 }

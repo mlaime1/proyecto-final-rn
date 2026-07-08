@@ -17,32 +17,56 @@ export async function getEmprendedor(): Promise<Emprendedor | null> {
     .maybeSingle();
 
   if (error) {
-    throw new Error('No se pudo cargar tu perfil de emprendedor.');
+    throw new Error('No se pudo cargar tu perfil.');
   }
 
   return data;
 }
 
-export async function createEmprendedor(userId: string, email?: string): Promise<Emprendedor> {
-  const fallbackName = email ? email.split('@')[0] : 'Emprendedor';
+export async function createEmprendedor(): Promise<Emprendedor> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  const email = userData.user?.email;
+
+  if (userError || !userId) {
+    throw new Error('Debes iniciar sesión para crear tu perfil.');
+  }
+
+  const existing = await getEmprendedor();
+  if (existing) {
+    return existing;
+  }
+
+  const fallbackName = email ? email.split('@')[0] : 'Mi Negocio';
 
   const { data, error } = await supabase
     .from('Emprendedor')
-    .insert({
-      users_id: userId,
-      nombre: fallbackName,
-      activo: true,
-    })
+    .upsert(
+      {
+        users_id: userId,
+        nombre: fallbackName,
+        activo: true,
+      },
+      { onConflict: 'users_id' },
+    )
     .select('*')
     .single();
 
   if (error) {
-    throw new Error('No se pudo crear tu perfil de emprendedor. Intentá de nuevo.');
+    throw new Error('No se pudo crear tu perfil. Intentá de nuevo.');
   }
 
   if (!data) {
-    throw new Error('No se pudo crear tu perfil de emprendedor.');
+    throw new Error('No se pudo crear tu perfil.');
   }
 
   return data;
+}
+
+export async function ensureEmprendedor(): Promise<Emprendedor> {
+  const existing = await getEmprendedor();
+  if (existing) {
+    return existing;
+  }
+  return createEmprendedor();
 }

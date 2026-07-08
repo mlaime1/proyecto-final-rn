@@ -34,7 +34,6 @@ const MONTHS = [
 const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
 export default function ConfirmarTurnoScreen() {
-  // Recibimos los params de nuevo.tsx
   const params = useLocalSearchParams<{
     serviceId: string;
     serviceName: string;
@@ -47,16 +46,29 @@ export default function ConfirmarTurnoScreen() {
   const date = new Date(params.date);
   const duration = parseInt(params.serviceDuration, 10);
   const price = parseInt(params.servicePrice, 10);
+  const serviceId = parseInt(params.serviceId, 10);
+  const timeParts = params.time?.split(':').map(Number) ?? [];
+
+  const paramsValid =
+    !isNaN(date.getTime()) &&
+    !isNaN(duration) &&
+    !isNaN(price) &&
+    !isNaN(serviceId) &&
+    timeParts.length === 2 &&
+    !isNaN(timeParts[0]) &&
+    !isNaN(timeParts[1]);
 
   const endTime = (() => {
-    const [h, m] = params.time.split(':').map(Number);
+    const [h, m] = timeParts;
     const total = h * 60 + m + duration;
     const eh = Math.floor(total / 60);
     const em = total % 60;
     return `${eh.toString().padStart(2, '0')}:${em.toString().padStart(2, '0')}`;
   })();
 
-  const formattedDate = `${DAYS_OF_WEEK[date.getDay()]} ${date.getDate()} de ${MONTHS[date.getMonth()]}`;
+  const formattedDate = paramsValid
+    ? `${DAYS_OF_WEEK[date.getDay()]} ${date.getDate()} de ${MONTHS[date.getMonth()]}`
+    : '';
 
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
@@ -65,13 +77,14 @@ export default function ConfirmarTurnoScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const telefonoLimpio = telefono.replace(/\D/g, '');
-  const canReserve = nombre.trim().length >= 2 && apellido.trim().length >= 2 && telefonoLimpio.length >= 8;
+  const telefonoValid = telefonoLimpio.length >= 8 && telefonoLimpio.length <= 15;
+  const canReserve = paramsValid && nombre.trim().length >= 2 && apellido.trim().length >= 2 && telefonoValid;
 
   async function handleReservar() {
     if (!canReserve) return;
     setLoading(true);
     try {
-      const [h, m] = params.time.split(':').map(Number);
+      const [h, m] = timeParts;
       const startDateTime = new Date(date);
       startDateTime.setHours(h, m, 0, 0);
 
@@ -82,7 +95,7 @@ export default function ConfirmarTurnoScreen() {
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         telefono: parseInt(telefonoLimpio, 10),
-        servicio_id: parseInt(params.serviceId, 10),
+        servicio_id: serviceId,
         inicio: localISOTime,
       });
 
@@ -94,6 +107,29 @@ export default function ConfirmarTurnoScreen() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (!paramsValid) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={20} color="#007AFF" />
+            <Text style={styles.backText}>Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Turnos</Text>
+          <View style={{ width: 60 }} />
+        </View>
+        <View style={styles.emptyState}>
+          <Ionicons name="warning-outline" size={48} color="#DC2626" />
+          <Text style={styles.emptyStateText}>Los datos del turno no son válidos.</Text>
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
+            <Text style={styles.secondaryButtonText}>Volver</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -381,6 +417,30 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 16,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#1C1C1E',
+    textAlign: 'center',
+  },
+  secondaryButton: {
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#F2F2F7',
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    color: '#007AFF',
     fontWeight: '600',
   },
 });

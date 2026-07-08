@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 
 export default function RegisterScreen() {
   const router = useRouter()
-  const { signUp, loading, error } = useAuth()
+  const { signUp, error } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -34,12 +34,12 @@ export default function RegisterScreen() {
 
     setLocalError(null)
     setSubmitting(true)
-    await signUp({ email, password })
+    const { error: signUpError } = await signUp({ email, password })
     setSubmitting(false)
 
-    if (!error) {
+    if (!signUpError) {
       setSuccessMessage('Revisá tu email para confirmar la cuenta')
-      setTimeout(() => {
+      globalThis.setTimeout(() => {
         router.push('/login')
       }, 2000)
     }

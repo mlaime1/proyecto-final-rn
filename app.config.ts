@@ -1,9 +1,8 @@
-import 'dotenv/config';
-
 export default {
   expo: {
-    name: 'movies-app',
-    slug: 'movies-app',
+    name: 'turnos-app',
+    slug: 'turnos-app',
+    scheme: 'turnosapp',
     extra: {
       apiUrl: process.env.EXPO_PUBLIC_API_URL,
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,

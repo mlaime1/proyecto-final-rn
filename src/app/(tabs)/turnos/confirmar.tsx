@@ -64,7 +64,8 @@ export default function ConfirmarTurnoScreen() {
   const [loading, setLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  const canReserve = nombre.trim() && apellido.trim() && telefono.trim().length >= 8;
+  const telefonoLimpio = telefono.replace(/\D/g, '');
+  const canReserve = nombre.trim().length >= 2 && apellido.trim().length >= 2 && telefonoLimpio.length >= 8;
 
   async function handleReservar() {
     if (!canReserve) return;
@@ -80,14 +81,16 @@ export default function ConfirmarTurnoScreen() {
       await createAppointment({
         nombre: nombre.trim(),
         apellido: apellido.trim(),
-        telefono: parseInt(telefono, 10),
+        telefono: parseInt(telefonoLimpio, 10),
         servicio_id: parseInt(params.serviceId, 10),
         inicio: localISOTime,
       });
 
       setShowSuccessModal(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo confirmar el turno. Intentá de nuevo.');
+      const friendlyMessage =
+        error?.message ?? 'No se pudo confirmar el turno. Intentá de nuevo.';
+      Alert.alert('Error', friendlyMessage);
     } finally {
       setLoading(false);
     }

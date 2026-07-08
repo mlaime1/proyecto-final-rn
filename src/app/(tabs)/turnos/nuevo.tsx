@@ -70,6 +70,8 @@ export default function NuevoTurnoScreen() {
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [occupiedSlots, setOccupiedSlots] = useState<string[]>([]);
+  const [loadingOccupied, setLoadingOccupied] = useState(false);
+  const [occupiedError, setOccupiedError] = useState<string | null>(null);
 
   useEffect(() => {
     loadServices();
@@ -77,18 +79,20 @@ export default function NuevoTurnoScreen() {
 
   useEffect(() => {
     async function loadOccupied() {
+      setLoadingOccupied(true);
+      setOccupiedError(null);
       try {
         const turnos = await getTurnosPorDia(selectedDate);
         const slots: string[] = [];
-        
-        turnos.forEach((t: any) => {
+
+        turnos?.forEach((t: { inicio: string; Servicio?: { duracion?: number | null } | null }) => {
           // Parse string (e.g. "2026-05-13T14:00:00" as local time)
           const start = new Date(t.inicio);
-          const duration = t.Servicio?.duracion || 30;
-          
+          const duration = t.Servicio?.duracion ?? 30;
+
           let current = new Date(start);
           const end = new Date(start.getTime() + duration * 60000);
-          
+
           while (current < end) {
             const h = current.getHours().toString().padStart(2, '0');
             const m = current.getMinutes().toString().padStart(2, '0');
@@ -96,14 +100,24 @@ export default function NuevoTurnoScreen() {
             current.setMinutes(current.getMinutes() + 30);
           }
         });
-        
+
         setOccupiedSlots(slots);
         // Deseleccionar si el turno seleccionado quedó ocupado
         if (selectedTime && slots.includes(selectedTime)) {
           setSelectedTime(null);
         }
       } catch (err) {
-        console.error('Error cargando turnos del dia:', err);
+        const message = err instanceof Error ? err.message : 'Error al cargar los horarios ocupados';
+        setOccupiedError(message);
+        if (message === 'Usuario no autenticado') {
+          Alert.alert(
+            'Sesión expirada',
+            'Tu sesión expiró. Por favor iniciá sesión nuevamente.',
+            [{ text: 'Aceptar', onPress: () => router.replace('/login') }]
+          );
+        }
+      } finally {
+        setLoadingOccupied(false);
       }
     }
     loadOccupied();
@@ -114,7 +128,7 @@ export default function NuevoTurnoScreen() {
       setLoadingServices(true);
       const data = await getServicios();
       setServices(data);
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'No se pudieron cargar los servicios.');
     } finally {
       setLoadingServices(false);
@@ -278,6 +292,18 @@ export default function NuevoTurnoScreen() {
         {/* Time slots */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Horarios disponibles</Text>
+          {occupiedError && !occupiedError.includes('autenticado') && (
+            <View style={styles.errorBanner}>
+              <Ionicons name="alert-circle" size={18} color="#DC2626" />
+              <Text style={styles.errorText}>{occupiedError}</Text>
+            </View>
+          )}
+          {loadingOccupied ? (
+            <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+              <ActivityIndicator color="#007AFF" />
+              <Text style={{ marginTop: 8, color: '#636366' }}>Cargando horarios...</Text>
+            </View>
+          ) : (
           <View style={styles.timeGrid}>
             {TIME_SLOTS.map((time) => {
               const isOccupied = occupiedSlots.includes(time);
@@ -321,6 +347,7 @@ export default function NuevoTurnoScreen() {
               );
             })}
           </View>
+          )}
         </View>
       </ScrollView>
 
@@ -494,6 +521,24 @@ const styles = StyleSheet.create({
   timeSlotTextDisabled: {
     color: '#94A3B8',
     textDecorationLine: 'line-through',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    borderColor: '#DC2626',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 12,
+    gap: 10,
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
   },
   bottomBar: {
     position: 'absolute',

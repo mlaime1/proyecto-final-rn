@@ -5,7 +5,6 @@ import Screen from '@/components/ui/Screen';
 import Card from '@/components/ui/Card';
 import { getTurnos, TurnoUI } from '@/services/turnos.service';
 import { router } from 'expo-router';
-import { upcomingAppointments } from './_data';
 
 export default function TurnosScreen() {
   const [turnos, setTurnos] = useState<TurnoUI[]>([]);

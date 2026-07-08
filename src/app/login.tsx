@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 
 export default function LoginScreen() {
   const router = useRouter()
-  const { signIn, loading, error } = useAuth()
+  const { signIn, error } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -19,9 +19,14 @@ export default function LoginScreen() {
       return
     }
 
+    setLocalError(null)
     setSubmitting(true)
-    await signIn({ email, password })
+    const { error: signInError } = await signIn({ email, password })
     setSubmitting(false)
+
+    if (signInError) {
+      setLocalError(signInError)
+    }
   }
 
   const handleEmailChange = (text: string) => {

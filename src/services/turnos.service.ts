@@ -32,6 +32,13 @@ type TurnoConRelaciones = {
   Servicio: { nombre: string | null } | null;
 };
 
+type TurnoPorDia = {
+  id: number;
+  inicio: string;
+  estado: string | null;
+  Servicio: { duracion: number | null } | null;
+};
+
 /* =========================
    GET TURNOS (FILTRADO + JOIN)
 ========================= */
@@ -47,9 +54,15 @@ export async function getTurnos(): Promise<TurnoUI[]> {
     .from('Emprendedor')
     .select('id')
     .eq('users_id', userId)
-    .single();
+    .maybeSingle();
 
-  if (empError || !emprendedor) return [];
+  if (empError) {
+    throw new Error('No se pudo cargar tu perfil de emprendedor.');
+  }
+
+  if (!emprendedor) {
+    throw new Error('No se encontró tu perfil de emprendedor. Verificá tu cuenta o contactá soporte.');
+  }
 
   // 3. traer turnos del emprendedor
   const { data, error } = await supabase
@@ -71,7 +84,7 @@ export async function getTurnos(): Promise<TurnoUI[]> {
   if (error) throw new Error(error.message);
 
   // 4. map a UI
-  return ((data ?? []) as TurnoConRelaciones[]).map((t) => ({
+  return ((data ?? []) as unknown as TurnoConRelaciones[]).map((t) => ({
     id: t.id,
     inicio: t.inicio,
     cliente_id: t.cliente_id,
@@ -82,18 +95,27 @@ export async function getTurnos(): Promise<TurnoUI[]> {
   }));
 }
 
-export async function getTurnosPorDia(date: Date) {
-  const { data: session } = await supabase.auth.getSession();
-  const userId = session?.session?.user?.id;
-  if (!userId) return [];
+export async function getTurnosPorDia(date: Date): Promise<TurnoPorDia[]> {
+  // Use getUser() for a secure server-validated session check.
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (userError || !userId) {
+    throw new Error('Usuario no autenticado');
+  }
 
-  const { data: emprendedor } = await supabase
+  const { data: emprendedor, error: empError } = await supabase
     .from('Emprendedor')
     .select('id')
     .eq('users_id', userId)
-    .single();
+    .maybeSingle();
 
-  if (!emprendedor) return [];
+  if (empError) {
+    throw new Error('No se pudo cargar tu perfil de emprendedor.');
+  }
+
+  if (!emprendedor) {
+    throw new Error('No se encontró tu perfil de emprendedor. Verificá tu cuenta o contactá soporte.');
+  }
 
   const tzOffset = date.getTimezoneOffset() * 60000;
   
@@ -120,7 +142,7 @@ export async function getTurnosPorDia(date: Date) {
 
   if (error) throw new Error(error.message);
 
-  return data;
+  return (data ?? []) as unknown as TurnoPorDia[];
 }
 
 /* =========================
@@ -179,13 +201,19 @@ export async function createAppointment(data: CreateAppointmentData) {
   if (!userId) throw new Error('Usuario no autenticado');
 
   // 2. obtener emprendedor
-  const { data: emprendedor } = await supabase
+  const { data: emprendedor, error: empError } = await supabase
     .from('Emprendedor')
     .select('id')
     .eq('users_id', userId)
-    .single();
+    .maybeSingle();
 
-  if (!emprendedor) throw new Error('Emprendedor no encontrado');
+  if (empError) {
+    throw new Error('No se pudo cargar tu perfil de emprendedor.');
+  }
+
+  if (!emprendedor) {
+    throw new Error('No se encontró tu perfil de emprendedor. Verificá tu cuenta o contactá soporte.');
+  }
 
   // 3. buscar o crear cliente
   let clienteId: number;

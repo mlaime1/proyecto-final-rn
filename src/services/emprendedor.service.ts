@@ -1,30 +1,48 @@
 import { supabase } from '@/lib/supabase';
+import { Database } from '@/types/database.types';
 
-export type Emprendedor = {
-  id: number;
-  nombre: string;
-  descripcion?: string;
-  foto_url?: string;
-};
+export type Emprendedor = Database['public']['Tables']['Emprendedor']['Row'];
+export type EmprendedorInsert = Database['public']['Tables']['Emprendedor']['Insert'];
 
-export async function getEmprendedor() {
-  // 1. usuario logueado
-  const { data: userData } = await supabase.auth.getUser();
+export async function getEmprendedor(): Promise<Emprendedor | null> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
   const userId = userData.user?.id;
 
-  if (!userId) return null;
+  if (userError || !userId) return null;
 
-  // 2. buscar emprendedor asociado
   const { data, error } = await supabase
     .from('Emprendedor')
     .select('*')
     .eq('users_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error('No se pudo cargar tu perfil de emprendedor.');
+  }
+
+  return data;
+}
+
+export async function createEmprendedor(userId: string, email?: string): Promise<Emprendedor> {
+  const fallbackName = email ? email.split('@')[0] : 'Emprendedor';
+
+  const { data, error } = await supabase
+    .from('Emprendedor')
+    .insert({
+      users_id: userId,
+      nombre: fallbackName,
+      activo: true,
+    })
+    .select('*')
     .single();
 
   if (error) {
-    console.error(error);
-    return null;
+    throw new Error('No se pudo crear tu perfil de emprendedor. Intentá de nuevo.');
   }
 
-  return data as Emprendedor;
+  if (!data) {
+    throw new Error('No se pudo crear tu perfil de emprendedor.');
+  }
+
+  return data;
 }

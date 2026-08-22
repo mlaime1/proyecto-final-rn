@@ -1,32 +1,32 @@
-import { useEffect } from 'react'
-import { Stack, useRouter, useSegments } from 'expo-router'
-import { ActivityIndicator, View } from 'react-native'
-import { useAuth } from '@/hooks/useAuth'
-import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { ActivityIndicator, View } from 'react-native';
+import { useAuth } from '@/hooks/useAuth';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export default function RootLayout() {
-  const { session, loading } = useAuth()
-  const router = useRouter()
-  const segments = useSegments()
+  const { session, loading } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
 
   useEffect(() => {
-    if (loading) return
+    if (loading) return;
 
-    const inAuthScreen = segments[0] === 'login'
+    const inAuthScreen = segments[0] === 'login';
 
     if (!session && !inAuthScreen) {
-      router.replace('/login')
+      router.replace('/login');
     } else if (session && inAuthScreen) {
-      router.replace('/(tabs)')
+      router.replace('/(tabs)');
     }
-  }, [session, loading, segments])
+  }, [session, loading, segments]);
 
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator />
       </View>
-    )
+    );
   }
 
   return (
@@ -36,5 +36,5 @@ export default function RootLayout() {
         <Stack.Screen name="login" />
       </Stack>
     </ErrorBoundary>
-  )
+  );
 }

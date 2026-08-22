@@ -3,7 +3,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ensureEmprendedor } from '@/services/emprendedor.service';
+import { getBarbero } from '@/services/barbero.service';
 import { getTurnos, TurnoUI } from '@/services/turnos.service';
 
 /* =========================
@@ -42,12 +42,8 @@ const formatTime = (dateString: string) => {
 
 const getEstadoBadgeColor = (estado: string) => {
   switch (estado) {
-    case 'pendiente':
-      return '#FEF08A';
     case 'confirmado':
       return '#DCFCE7';
-    case 'completado':
-      return '#D1FAE5';
     case 'cancelado':
       return '#FECACA';
     default:
@@ -57,12 +53,8 @@ const getEstadoBadgeColor = (estado: string) => {
 
 const getEstadoTextColor = (estado: string) => {
   switch (estado) {
-    case 'pendiente':
-      return '#854D0E';
     case 'confirmado':
       return '#166534';
-    case 'completado':
-      return '#065F46';
     case 'cancelado':
       return '#7F1D1D';
     default:
@@ -127,7 +119,7 @@ export default function Home() {
   const router = useRouter();
   const [turnos, setTurnos] = useState<TurnoUI[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState('Emprendedor');
+  const [userName, setUserName] = useState('Barbero');
 
   useEffect(() => {
     loadHomeData();
@@ -135,12 +127,13 @@ export default function Home() {
 
   const loadHomeData = async () => {
     try {
-      const [turnosData, emprendedor] = await Promise.all([getTurnos(), ensureEmprendedor()]);
+      const barbero = await getBarbero();
+      const turnosData = await getTurnos();
 
       setTurnos(turnosData);
 
-      if (emprendedor?.nombre) {
-        setUserName(emprendedor.nombre);
+      if (barbero?.nombre) {
+        setUserName(barbero.nombre);
       }
     } catch {
       setTurnos([]);

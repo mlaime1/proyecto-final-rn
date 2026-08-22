@@ -2,37 +2,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { getBarbero, type BarberoConBarberia } from '@/services/barbero.service';
+import { getBloqueosDelDia } from '@/services/bloqueos.service';
 import { getServicios, getTurnosPorDia, type Servicio } from '@/services/turnos.service';
-
-
-const TIME_SLOTS = [
-  '10:00',
-  '10:30',
-  '11:00',
-  '11:30',
-  '12:00',
-  '12:30',
-  '13:00',
-  '13:30',
-  '14:00',
-  '14:30',
-  '15:00',
-  '15:30',
-  '16:00',
-  '16:30',
-  '17:00',
-  '17:30',
-];
+import { computeOccupiedSlots, generateTimeSlots, isDiaHabil } from '@/lib/availability';
 
 const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = [
@@ -62,6 +45,7 @@ function formatDateLong(date: Date): string {
 }
 
 export default function NuevoTurnoScreen() {
+  const [barbero, setBarbero] = useState<BarberoConBarberia | null>(null);
   const [services, setServices] = useState<Servicio[]>([]);
   const [loadingServices, setLoadingServices] = useState(true);
   const [selectedService, setSelectedService] = useState<Servicio | null>(null);
@@ -73,7 +57,11 @@ export default function NuevoTurnoScreen() {
   const [loadingOccupied, setLoadingOccupied] = useState(false);
   const [occupiedError, setOccupiedError] = useState<string | null>(null);
 
+  // Slots generados según apertura/cierre del barbero
+  const timeSlots = generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre);
+
   useEffect(() => {
+    loadBarbero();
     loadServices();
   }, []);
 
@@ -82,24 +70,11 @@ export default function NuevoTurnoScreen() {
       setLoadingOccupied(true);
       setOccupiedError(null);
       try {
-        const turnos = await getTurnosPorDia(selectedDate);
-        const slots: string[] = [];
-
-        turnos?.forEach((t: { inicio: string; Servicio?: { duracion?: number | null } | null }) => {
-          // Parse string (e.g. "2026-05-13T14:00:00" as local time)
-          const start = new Date(t.inicio);
-          const duration = t.Servicio?.duracion ?? 30;
-
-          let current = new Date(start);
-          const end = new Date(start.getTime() + duration * 60000);
-
-          while (current < end) {
-            const h = current.getHours().toString().padStart(2, '0');
-            const m = current.getMinutes().toString().padStart(2, '0');
-            slots.push(`${h}:${m}`);
-            current.setMinutes(current.getMinutes() + 30);
-          }
-        });
+        const [turnos, bloqueos] = await Promise.all([
+          getTurnosPorDia(selectedDate),
+          getBloqueosDelDia(selectedDate),
+        ]);
+        const slots = computeOccupiedSlots(turnos, bloqueos);
 
         setOccupiedSlots(slots);
         // Deseleccionar si el turno seleccionado quedó ocupado
@@ -107,14 +82,13 @@ export default function NuevoTurnoScreen() {
           setSelectedTime(null);
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Error al cargar los horarios ocupados';
+        const message =
+          err instanceof Error ? err.message : 'Error al cargar los horarios ocupados';
         setOccupiedError(message);
         if (message === 'Usuario no autenticado') {
-          Alert.alert(
-            'Sesión expirada',
-            'Tu sesión expiró. Por favor iniciá sesión nuevamente.',
-            [{ text: 'Aceptar', onPress: () => router.replace('/login') }]
-          );
+          Alert.alert('Sesión expirada', 'Tu sesión expiró. Por favor iniciá sesión nuevamente.', [
+            { text: 'Aceptar', onPress: () => router.replace('/login') },
+          ]);
         }
       } finally {
         setLoadingOccupied(false);
@@ -122,6 +96,25 @@ export default function NuevoTurnoScreen() {
     }
     loadOccupied();
   }, [selectedDate]);
+
+  const loadBarbero = async () => {
+    try {
+      const data = await getBarbero();
+      setBarbero(data);
+
+      // Si el día seleccionado no es hábil para el barbero, saltar al primero hábil
+      if (data && !isDiaHabil(selectedDate, data.dias_habiles)) {
+        const next = Array.from({ length: 14 }, (_, i) => {
+          const d = new Date();
+          d.setDate(new Date().getDate() + i);
+          return d;
+        }).find((d) => isDiaHabil(d, data.dias_habiles));
+        if (next) setSelectedDate(next);
+      }
+    } catch {
+      // sin config del barbero, se usan los defaults de availability.ts
+    }
+  };
 
   const loadServices = async () => {
     try {
@@ -135,11 +128,12 @@ export default function NuevoTurnoScreen() {
     }
   };
 
+  // Solo días hábiles del barbero dentro de los próximos 14 días
   const availableDays: Date[] = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
     d.setDate(new Date().getDate() + i);
     return d;
-  });
+  }).filter((day) => isDiaHabil(day, barbero?.dias_habiles));
 
   const canContinue = selectedService && selectedTime;
 
@@ -237,7 +231,9 @@ export default function NuevoTurnoScreen() {
                     >
                       {s.nombre}
                     </Text>
-                    <Text style={styles.dropdownItemPrice}>${s.precio?.toLocaleString('es-AR') ?? 0}</Text>
+                    <Text style={styles.dropdownItemPrice}>
+                      ${s.precio?.toLocaleString('es-AR') ?? 0}
+                    </Text>
                   </TouchableOpacity>
                 ))
               )}
@@ -312,49 +308,50 @@ export default function NuevoTurnoScreen() {
               <Text style={{ marginTop: 8, color: '#636366' }}>Cargando horarios...</Text>
             </View>
           ) : (
-          <View style={styles.timeGrid}>
-            {TIME_SLOTS.map((time) => {
-              const isOccupied = occupiedSlots.includes(time);
-              
-              const now = new Date();
-              const isToday = selectedDate.getDate() === now.getDate() && 
-                              selectedDate.getMonth() === now.getMonth() && 
-                              selectedDate.getFullYear() === now.getFullYear();
-              let isPast = false;
-              if (isToday) {
-                const [h, m] = time.split(':').map(Number);
-                if (h < now.getHours() || (h === now.getHours() && m <= now.getMinutes())) {
-                  isPast = true;
-                }
-              }
-              
-              const isDisabled = isOccupied || isPast;
+            <View style={styles.timeGrid}>
+              {timeSlots.map((time) => {
+                const isOccupied = occupiedSlots.includes(time);
 
-              return (
-                <TouchableOpacity
-                  key={time}
-                  style={[
-                    styles.timeSlot,
-                    selectedTime === time && styles.timeSlotSelected,
-                    isDisabled && styles.timeSlotDisabled
-                  ]}
-                  onPress={() => setSelectedTime(time === selectedTime ? null : time)}
-                  activeOpacity={0.75}
-                  disabled={isDisabled}
-                >
-                  <Text
+                const now = new Date();
+                const isToday =
+                  selectedDate.getDate() === now.getDate() &&
+                  selectedDate.getMonth() === now.getMonth() &&
+                  selectedDate.getFullYear() === now.getFullYear();
+                let isPast = false;
+                if (isToday) {
+                  const [h, m] = time.split(':').map(Number);
+                  if (h < now.getHours() || (h === now.getHours() && m <= now.getMinutes())) {
+                    isPast = true;
+                  }
+                }
+
+                const isDisabled = isOccupied || isPast;
+
+                return (
+                  <TouchableOpacity
+                    key={time}
                     style={[
-                      styles.timeSlotText,
-                      selectedTime === time && styles.timeSlotTextSelected,
-                      isDisabled && styles.timeSlotTextDisabled
+                      styles.timeSlot,
+                      selectedTime === time && styles.timeSlotSelected,
+                      isDisabled && styles.timeSlotDisabled,
                     ]}
+                    onPress={() => setSelectedTime(time === selectedTime ? null : time)}
+                    activeOpacity={0.75}
+                    disabled={isDisabled}
                   >
-                    {time}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    <Text
+                      style={[
+                        styles.timeSlotText,
+                        selectedTime === time && styles.timeSlotTextSelected,
+                        isDisabled && styles.timeSlotTextDisabled,
+                      ]}
+                    >
+                      {time}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           )}
         </View>
       </ScrollView>
@@ -366,7 +363,9 @@ export default function NuevoTurnoScreen() {
             {selectedService ? selectedService.nombre : 'Servicio'}
           </Text>
           {selectedService && (
-            <Text style={styles.bottomPrice}>${selectedService.precio?.toLocaleString('es-AR') ?? 0}</Text>
+            <Text style={styles.bottomPrice}>
+              ${selectedService.precio?.toLocaleString('es-AR') ?? 0}
+            </Text>
           )}
           <Text style={styles.bottomDateTime}>
             {formatDateLong(selectedDate)} · {selectedTime ?? '--:--'} hs

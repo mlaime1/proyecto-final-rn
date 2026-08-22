@@ -24,10 +24,7 @@ function Card({ turno }: Props) {
   const router = useRouter();
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => router.push(`/turnos/${turno.id}`)}
-    >
+    <TouchableOpacity style={styles.card} onPress={() => router.push(`/turnos/${turno.id}`)}>
       <View style={styles.iconContainer}>
         <Ionicons name="cut-outline" size={22} color="#0F172A" />
       </View>

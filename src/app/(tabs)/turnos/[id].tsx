@@ -1,7 +1,14 @@
 import Screen from '@/components/ui/Screen';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { getTurnoById, updateTurno } from '@/services/turnos.service';
 import { useEffect, useState } from 'react';
 import ConfirmModal from '@/components/ui/ConfirmModal';
@@ -9,18 +16,12 @@ import AlertModal from '@/components/ui/AlertModal';
 import ModificarTurnoModal from '@/components/ui/ModificarTurnoModal';
 
 const STATUS_LABELS: Record<string, string> = {
-  pendiente: 'Pendiente',
   confirmado: 'Confirmado',
-  completado: 'Completado',
-  ausente: 'Ausente',
   cancelado: 'Cancelado',
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  pendiente: '#F97316',
   confirmado: '#2563EB',
-  completado: '#16A34A',
-  ausente: '#EF4444',
   cancelado: '#64748B',
 };
 
@@ -69,8 +70,16 @@ export default function TurnoDetalleScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
-  const [confirmModal, setConfirmModal] = useState<{ visible: boolean; status: string }>({ visible: false, status: '' });
-  const [alertModal, setAlertModal] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({ visible: false, title: '', message: '', type: 'info' });
+  const [confirmModal, setConfirmModal] = useState<{ visible: boolean; status: string }>({
+    visible: false,
+    status: '',
+  });
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'info';
+  }>({ visible: false, title: '', message: '', type: 'info' });
   const [modificarModalVisible, setModificarModalVisible] = useState(false);
 
   useEffect(() => {
@@ -98,7 +107,7 @@ export default function TurnoDetalleScreen() {
   const executeStatusUpdate = async (status: string) => {
     try {
       setUpdating(true);
-      await updateTurno(turnoId, { estado: status as 'pendiente' | 'confirmado' | 'completado' | 'cancelado' | 'ausente' });
+      await updateTurno(turnoId, { estado: status as 'confirmado' | 'cancelado' });
       setTurno((prev: any) => ({ ...prev, estado: status }));
       setAlertModal({
         visible: true,
@@ -127,7 +136,7 @@ export default function TurnoDetalleScreen() {
       setModificarModalVisible(false);
       setUpdating(true);
       await updateTurno(turnoId, data);
-      
+
       const updated = await getTurnoById(turnoId);
       setTurno(updated);
 
@@ -174,7 +183,7 @@ export default function TurnoDetalleScreen() {
   }
 
   const start = new Date(turno.inicio);
-  const duracionMs = (turno.Servicio?.duracion || 30) * 60000;
+  const duracionMs = (turno.duracion_minutos || 30) * 60000;
   const end = new Date(start.getTime() + duracionMs);
   const statusColor = STATUS_COLORS[turno.estado] ?? '#0F172A';
 
@@ -220,7 +229,9 @@ export default function TurnoDetalleScreen() {
           </View>
           <View style={styles.infoRow}>
             <Ionicons name="cut-outline" size={18} color="#64748B" />
-            <Text style={styles.infoText}>{turno.Servicio?.nombre ?? 'Servicio no especificado'}</Text>
+            <Text style={styles.infoText}>
+              {turno.Servicio?.nombre ?? 'Servicio no especificado'}
+            </Text>
           </View>
           <View style={styles.infoRow}>
             <Ionicons name="card-outline" size={18} color="#64748B" />
@@ -228,40 +239,28 @@ export default function TurnoDetalleScreen() {
           </View>
         </View>
 
-        {turno.estado !== 'completado' && turno.estado !== 'cancelado' && (
-          <View style={styles.primaryActions}>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.alertButton, updating && { opacity: 0.5 }]} 
-              disabled={updating}
-              onPress={() => handleUpdateStatus('ausente')}
-            >
-              {updating ? <ActivityIndicator color="#FFF" /> : <Text style={styles.actionButtonText}>Ausente</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.completeButton, updating && { opacity: 0.5 }]} 
-              disabled={updating}
-              onPress={() => handleUpdateStatus('completado')}
-            >
-              {updating ? <ActivityIndicator color="#FFF" /> : <Text style={styles.actionButtonText}>Finalizar</Text>}
-            </TouchableOpacity>
-          </View>
-        )}
-
         <View style={styles.divider} />
 
         <TouchableOpacity style={styles.secondaryButton} onPress={() => {}}>
           <Text style={styles.secondaryButtonText}>Contactar por wsp</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => setModificarModalVisible(true)}>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => setModificarModalVisible(true)}
+        >
           <Text style={styles.secondaryButtonText}>Modificar turno</Text>
         </TouchableOpacity>
         {turno.estado !== 'cancelado' && (
-          <TouchableOpacity 
-            style={[styles.secondaryButton, updating && { opacity: 0.5 }]} 
+          <TouchableOpacity
+            style={[styles.secondaryButton, updating && { opacity: 0.5 }]}
             disabled={updating}
             onPress={() => handleUpdateStatus('cancelado')}
           >
-            {updating ? <ActivityIndicator color="#0F172A" /> : <Text style={styles.secondaryButtonText}>Cancelar turno</Text>}
+            {updating ? (
+              <ActivityIndicator color="#0F172A" />
+            ) : (
+              <Text style={styles.secondaryButtonText}>Cancelar turno</Text>
+            )}
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -279,7 +278,7 @@ export default function TurnoDetalleScreen() {
         }}
         confirmText="Sí, marcar"
         cancelText="No, volver"
-        isDestructive={confirmModal.status === 'cancelado' || confirmModal.status === 'ausente'}
+        isDestructive={confirmModal.status === 'cancelado'}
       />
 
       <AlertModal
@@ -371,26 +370,6 @@ const styles = StyleSheet.create({
   infoText: {
     color: '#334155',
     fontSize: 15,
-  },
-  primaryActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  alertButton: {
-    backgroundColor: '#EF4444',
-  },
-  completeButton: {
-    backgroundColor: '#16A34A',
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
   },
   divider: {
     height: StyleSheet.hairlineWidth,

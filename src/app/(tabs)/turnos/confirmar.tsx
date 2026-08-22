@@ -1,19 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { createAppointment } from '@/services/turnos.service';
+import { createAppointment, type OrigenTurno } from '@/services/turnos.service';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const MONTHS = [
@@ -73,12 +73,14 @@ export default function ConfirmarTurnoScreen() {
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [origen, setOrigen] = useState<OrigenTurno>('presencial');
   const [loading, setLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const telefonoLimpio = telefono.replace(/\D/g, '');
   const telefonoValid = telefonoLimpio.length >= 8 && telefonoLimpio.length <= 15;
-  const canReserve = paramsValid && nombre.trim().length >= 2 && apellido.trim().length >= 2 && telefonoValid;
+  const canReserve =
+    paramsValid && nombre.trim().length >= 2 && apellido.trim().length >= 2 && telefonoValid;
 
   async function handleReservar() {
     if (!canReserve) return;
@@ -97,12 +99,12 @@ export default function ConfirmarTurnoScreen() {
         telefono: parseInt(telefonoLimpio, 10),
         servicio_id: serviceId,
         inicio: localISOTime,
+        origen,
       });
 
       setShowSuccessModal(true);
     } catch (error: any) {
-      const friendlyMessage =
-        error?.message ?? 'No se pudo confirmar el turno. Intentá de nuevo.';
+      const friendlyMessage = error?.message ?? 'No se pudo confirmar el turno. Intentá de nuevo.';
       Alert.alert('Error', friendlyMessage);
     } finally {
       setLoading(false);
@@ -224,6 +226,43 @@ export default function ConfirmarTurnoScreen() {
           />
         </View>
 
+        {/* Origen de la reserva */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Origen</Text>
+          <View style={styles.origenRow}>
+            <TouchableOpacity
+              style={[styles.origenButton, origen === 'presencial' && styles.origenButtonSelected]}
+              onPress={() => setOrigen('presencial')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="storefront-outline"
+                size={18}
+                color={origen === 'presencial' ? '#FFFFFF' : '#3C3C43'}
+              />
+              <Text
+                style={[styles.origenText, origen === 'presencial' && styles.origenTextSelected]}
+              >
+                Presencial
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.origenButton, origen === 'whatsapp' && styles.origenButtonSelected]}
+              onPress={() => setOrigen('whatsapp')}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="logo-whatsapp"
+                size={18}
+                color={origen === 'whatsapp' ? '#FFFFFF' : '#3C3C43'}
+              />
+              <Text style={[styles.origenText, origen === 'whatsapp' && styles.origenTextSelected]}>
+                WhatsApp
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Reserve button */}
         <TouchableOpacity
           style={[styles.reserveButton, (!canReserve || loading) && styles.reserveButtonDisabled]}
@@ -236,11 +275,7 @@ export default function ConfirmarTurnoScreen() {
       </ScrollView>
 
       {/* Success Modal */}
-      <Modal
-        visible={showSuccessModal}
-        transparent
-        animationType="fade"
-      >
+      <Modal visible={showSuccessModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalIconContainer}>
@@ -248,7 +283,8 @@ export default function ConfirmarTurnoScreen() {
             </View>
             <Text style={styles.modalTitle}>¡Turno reservado!</Text>
             <Text style={styles.modalMessage}>
-              Tu turno para {params.serviceName} el {formattedDate} a las {params.time} hs ha sido confirmado.
+              Tu turno para {params.serviceName} el {formattedDate} a las {params.time} hs ha sido
+              confirmado.
             </Text>
             <TouchableOpacity
               style={styles.modalButton}
@@ -370,6 +406,34 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '700',
+  },
+  origenRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  origenButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#C7C7CC',
+    borderRadius: 8,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  origenButtonSelected: {
+    backgroundColor: '#1C1C1E',
+    borderColor: '#1C1C1E',
+  },
+  origenText: {
+    fontSize: 15,
+    color: '#3C3C43',
+    fontWeight: '600',
+  },
+  origenTextSelected: {
+    color: '#FFFFFF',
   },
   modalOverlay: {
     flex: 1,

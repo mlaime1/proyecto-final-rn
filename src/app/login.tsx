@@ -1,67 +1,74 @@
-import { useState } from 'react'
-import { View, TextInput, StyleSheet, ActivityIndicator, TouchableOpacity, Text, KeyboardAvoidingView, ScrollView, Platform } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import { useAuth } from '@/hooks/useAuth'
+import { useState } from 'react';
+import {
+  View,
+  TextInput,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  Text,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/hooks/useAuth';
 
 function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 export default function LoginScreen() {
-  const { signIn, error } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [localError, setLocalError] = useState<string | null>(null)
+  const { signIn, error } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      setLocalError('Por favor completa todos los campos')
-      return
+      setLocalError('Por favor completa todos los campos');
+      return;
     }
 
     if (!isValidEmail(email)) {
-      setLocalError('Ingresá un email válido')
-      return
+      setLocalError('Ingresá un email válido');
+      return;
     }
 
     if (password.length < 6) {
-      setLocalError('La contraseña debe tener al menos 6 caracteres')
-      return
+      setLocalError('La contraseña debe tener al menos 6 caracteres');
+      return;
     }
 
-    setLocalError(null)
-    setSubmitting(true)
-    const { error: signInError } = await signIn({ email, password })
-    setSubmitting(false)
+    setLocalError(null);
+    setSubmitting(true);
+    const { error: signInError } = await signIn({ email, password });
+    setSubmitting(false);
 
     if (signInError) {
-      setLocalError(signInError)
+      setLocalError(signInError);
     }
-  }
+  };
 
   const handleEmailChange = (text: string) => {
-    setEmail(text)
-    if (localError) setLocalError(null)
-  }
+    setEmail(text);
+    if (localError) setLocalError(null);
+  };
 
   const handlePasswordChange = (text: string) => {
-    setPassword(text)
-    if (localError) setLocalError(null)
-  }
+    setPassword(text);
+    if (localError) setLocalError(null);
+  };
 
-  const displayError = localError || error
+  const displayError = localError || error;
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <Text style={styles.title}>Iniciar sesión</Text>
 
@@ -91,11 +98,7 @@ export default function LoginScreen() {
               onPress={() => setShowPassword(!showPassword)}
               disabled={submitting}
             >
-              <Ionicons
-                name={showPassword ? 'eye-off' : 'eye'}
-                size={20}
-                color="#4C1D95"
-              />
+              <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color="#4C1D95" />
             </TouchableOpacity>
           </View>
 
@@ -120,7 +123,7 @@ export default function LoginScreen() {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -221,4 +224,4 @@ const styles = StyleSheet.create({
     color: '#4C1D95',
     fontWeight: '600',
   },
-})
+});

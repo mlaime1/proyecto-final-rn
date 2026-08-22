@@ -1,15 +1,34 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getServicios, getTurnosPorDia, type Servicio } from '@/services/turnos.service';
-
-const TIME_SLOTS = [
-  '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
-  '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-];
+import { getBarbero, type BarberoConBarberia } from '@/services/barbero.service';
+import { getBloqueosDelDia } from '@/services/bloqueos.service';
+import { computeOccupiedSlots, generateTimeSlots, isDiaHabil } from '@/lib/availability';
 
 const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const MONTHS = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+];
 
 function formatDate(date: Date): string {
   const d = date.getDate().toString().padStart(2, '0');
@@ -29,25 +48,37 @@ interface ModificarTurnoModalProps {
   onSave: (data: { servicio_id: number; inicio: string }) => void;
 }
 
-export default function ModificarTurnoModal({ visible, turno, onClose, onSave }: ModificarTurnoModalProps) {
+export default function ModificarTurnoModal({
+  visible,
+  turno,
+  onClose,
+  onSave,
+}: ModificarTurnoModalProps) {
+  const [barbero, setBarbero] = useState<BarberoConBarberia | null>(null);
   const [services, setServices] = useState<Servicio[]>([]);
   const [loadingServices, setLoadingServices] = useState(true);
-  
+
   const [selectedService, setSelectedService] = useState<Servicio | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  
+
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [occupiedSlots, setOccupiedSlots] = useState<string[]>([]);
 
+  // Slots generados según apertura/cierre del barbero
+  const timeSlots = generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre);
+
   useEffect(() => {
     if (visible) {
+      loadBarbero();
       loadServices();
       if (turno) {
         const startDate = new Date(turno.inicio);
         setSelectedDate(startDate);
-        setSelectedTime(`${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`);
+        setSelectedTime(
+          `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`,
+        );
       }
     } else {
       // Reset state on close
@@ -60,28 +91,17 @@ export default function ModificarTurnoModal({ visible, turno, onClose, onSave }:
     async function loadOccupied() {
       if (!visible) return;
       try {
-        const turnos = await getTurnosPorDia(selectedDate);
-        const slots: string[] = [];
-        
-        turnos.forEach((t: any) => {
-          if (turno && t.id === turno.id) return; // omitir el turno actual
+        const [turnos, bloqueos] = await Promise.all([
+          getTurnosPorDia(selectedDate),
+          getBloqueosDelDia(selectedDate),
+        ]);
 
-          const start = new Date(t.inicio);
-          const duration = t.Servicio?.duracion || 30;
-          
-          let current = new Date(start);
-          const end = new Date(start.getTime() + duration * 60000);
-          
-          while (current < end) {
-            const h = current.getHours().toString().padStart(2, '0');
-            const m = current.getMinutes().toString().padStart(2, '0');
-            slots.push(`${h}:${m}`);
-            current.setMinutes(current.getMinutes() + 30);
-          }
-        });
-        
+        // omitir el turno actual del cálculo de ocupados
+        const otrosTurnos = turno ? turnos.filter((t) => t.id !== turno.id) : turnos;
+        const slots = computeOccupiedSlots(otrosTurnos, bloqueos);
+
         setOccupiedSlots(slots);
-        
+
         // Si no estamos inicializando con el turno viejo y el seleccionado se ocupó
         if (selectedTime && slots.includes(selectedTime) && turno?.inicio) {
           const oldTimeH = new Date(turno.inicio).getHours().toString().padStart(2, '0');
@@ -97,13 +117,22 @@ export default function ModificarTurnoModal({ visible, turno, onClose, onSave }:
     loadOccupied();
   }, [selectedDate, visible, turno]);
 
+  const loadBarbero = async () => {
+    try {
+      const data = await getBarbero();
+      setBarbero(data);
+    } catch {
+      // sin config del barbero, se usan los defaults de availability.ts
+    }
+  };
+
   const loadServices = async () => {
     try {
       setLoadingServices(true);
       const data = await getServicios();
       setServices(data);
       if (turno?.servicio_id) {
-        const currentService = data.find(s => s.id === turno.servicio_id);
+        const currentService = data.find((s) => s.id === turno.servicio_id);
         if (currentService) setSelectedService(currentService);
       }
     } catch {
@@ -113,15 +142,16 @@ export default function ModificarTurnoModal({ visible, turno, onClose, onSave }:
     }
   };
 
+  // Solo días hábiles del barbero dentro de los próximos 14 días
   const availableDays: Date[] = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
     d.setDate(new Date().getDate() + i);
     return d;
-  });
+  }).filter((day) => isDiaHabil(day, barbero?.dias_habiles));
 
   const handleSave = () => {
     if (!selectedService || !selectedTime) return;
-    
+
     const [h, m] = selectedTime.split(':').map(Number);
     const newInicio = new Date(selectedDate);
     newInicio.setHours(h, m, 0, 0);
@@ -154,27 +184,45 @@ export default function ModificarTurnoModal({ visible, turno, onClose, onSave }:
               <Text style={styles.label}>Servicio</Text>
               <TouchableOpacity
                 style={styles.dropdown}
-                onPress={() => { setShowServiceDropdown(!showServiceDropdown); setShowDatePicker(false); }}
+                onPress={() => {
+                  setShowServiceDropdown(!showServiceDropdown);
+                  setShowDatePicker(false);
+                }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.dropdownText}>
                   {selectedService ? selectedService.nombre : 'Seleccionar'}
                 </Text>
-                <Ionicons name={showServiceDropdown ? 'chevron-up' : 'chevron-down'} size={18} color="#636366" />
+                <Ionicons
+                  name={showServiceDropdown ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color="#636366"
+                />
               </TouchableOpacity>
-              
+
               {showServiceDropdown && (
                 <View style={styles.dropdownMenu}>
                   {loadingServices ? (
                     <ActivityIndicator style={{ padding: 16 }} />
                   ) : (
-                    services.map(s => (
+                    services.map((s) => (
                       <TouchableOpacity
                         key={s.id}
-                        style={[styles.dropdownItem, selectedService?.id === s.id && styles.dropdownItemSelected]}
-                        onPress={() => { setSelectedService(s); setShowServiceDropdown(false); }}
+                        style={[
+                          styles.dropdownItem,
+                          selectedService?.id === s.id && styles.dropdownItemSelected,
+                        ]}
+                        onPress={() => {
+                          setSelectedService(s);
+                          setShowServiceDropdown(false);
+                        }}
                       >
-                        <Text style={[styles.dropdownItemText, selectedService?.id === s.id && styles.dropdownItemTextSelected]}>
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            selectedService?.id === s.id && styles.dropdownItemTextSelected,
+                          ]}
+                        >
                           {s.nombre}
                         </Text>
                       </TouchableOpacity>
@@ -189,11 +237,18 @@ export default function ModificarTurnoModal({ visible, turno, onClose, onSave }:
               <Text style={styles.label}>Fecha</Text>
               <TouchableOpacity
                 style={styles.dropdown}
-                onPress={() => { setShowDatePicker(!showDatePicker); setShowServiceDropdown(false); }}
+                onPress={() => {
+                  setShowDatePicker(!showDatePicker);
+                  setShowServiceDropdown(false);
+                }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.dropdownText}>{formatDateLong(selectedDate)}</Text>
-                <Ionicons name={showDatePicker ? 'chevron-up' : 'chevron-down'} size={18} color="#636366" />
+                <Ionicons
+                  name={showDatePicker ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color="#636366"
+                />
               </TouchableOpacity>
 
               {showDatePicker && (
@@ -202,10 +257,23 @@ export default function ModificarTurnoModal({ visible, turno, onClose, onSave }:
                     {availableDays.map((day, idx) => (
                       <TouchableOpacity
                         key={idx}
-                        style={[styles.dropdownItem, formatDate(day) === formatDate(selectedDate) && styles.dropdownItemSelected]}
-                        onPress={() => { setSelectedDate(day); setShowDatePicker(false); }}
+                        style={[
+                          styles.dropdownItem,
+                          formatDate(day) === formatDate(selectedDate) &&
+                            styles.dropdownItemSelected,
+                        ]}
+                        onPress={() => {
+                          setSelectedDate(day);
+                          setShowDatePicker(false);
+                        }}
                       >
-                        <Text style={[styles.dropdownItemText, formatDate(day) === formatDate(selectedDate) && styles.dropdownItemTextSelected]}>
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            formatDate(day) === formatDate(selectedDate) &&
+                              styles.dropdownItemTextSelected,
+                          ]}
+                        >
                           {formatDateLong(day)}
                         </Text>
                       </TouchableOpacity>
@@ -219,13 +287,14 @@ export default function ModificarTurnoModal({ visible, turno, onClose, onSave }:
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Horario</Text>
               <View style={styles.timeGrid}>
-                {TIME_SLOTS.map((time) => {
+                {timeSlots.map((time) => {
                   const isOccupied = occupiedSlots.includes(time);
-                  
+
                   const now = new Date();
-                  const isToday = selectedDate.getDate() === now.getDate() && 
-                                  selectedDate.getMonth() === now.getMonth() && 
-                                  selectedDate.getFullYear() === now.getFullYear();
+                  const isToday =
+                    selectedDate.getDate() === now.getDate() &&
+                    selectedDate.getMonth() === now.getMonth() &&
+                    selectedDate.getFullYear() === now.getFullYear();
                   let isPast = false;
                   if (isToday) {
                     const [h, m] = time.split(':').map(Number);
@@ -233,7 +302,7 @@ export default function ModificarTurnoModal({ visible, turno, onClose, onSave }:
                       isPast = true;
                     }
                   }
-                  
+
                   const isDisabled = isOccupied || isPast;
 
                   return (
@@ -242,17 +311,19 @@ export default function ModificarTurnoModal({ visible, turno, onClose, onSave }:
                       style={[
                         styles.timeSlot,
                         selectedTime === time && styles.timeSlotSelected,
-                        isDisabled && styles.timeSlotDisabled
+                        isDisabled && styles.timeSlotDisabled,
                       ]}
                       onPress={() => setSelectedTime(time)}
                       activeOpacity={0.75}
                       disabled={isDisabled}
                     >
-                      <Text style={[
-                        styles.timeSlotText,
-                        selectedTime === time && styles.timeSlotTextSelected,
-                        isDisabled && styles.timeSlotTextDisabled
-                      ]}>
+                      <Text
+                        style={[
+                          styles.timeSlotText,
+                          selectedTime === time && styles.timeSlotTextSelected,
+                          isDisabled && styles.timeSlotTextDisabled,
+                        ]}
+                      >
                         {time}
                       </Text>
                     </TouchableOpacity>
@@ -266,8 +337,8 @@ export default function ModificarTurnoModal({ visible, turno, onClose, onSave }:
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
               <Text style={styles.cancelBtnText}>Cancelar</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]} 
+            <TouchableOpacity
+              style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
               disabled={!canSave}
               onPress={handleSave}
             >

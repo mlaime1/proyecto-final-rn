@@ -25,7 +25,7 @@ export default function TurnosScreen() {
   useFocusEffect(
     useCallback(() => {
       loadTurnos();
-    }, [loadTurnos])
+    }, [loadTurnos]),
   );
 
   const onRefresh = async () => {
@@ -44,9 +44,7 @@ export default function TurnosScreen() {
         renderItem={({ item }) => <Card turno={item} />}
         ListEmptyComponent={<Text style={styles.empty}>No hay turnos</Text>}
         contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       />
     </Screen>
   );

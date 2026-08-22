@@ -1,14 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  ScrollView,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
-import { Emprendedor, ensureEmprendedor } from '@/services/emprendedor.service';
+import { BarberoConBarberia, getBarbero } from '@/services/barbero.service';
 
 export default function PerfilScreen() {
   const { signOut, session } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
-  const [emprendedor, setEmprendedor] = useState<Emprendedor | null>(null);
+  const [barbero, setBarbero] = useState<BarberoConBarberia | null>(null);
   const [loading, setLoading] = useState(true);
 
   const handleSignOut = async () => {
@@ -22,9 +30,9 @@ export default function PerfilScreen() {
 
   useEffect(() => {
     let mounted = true;
-    ensureEmprendedor()
+    getBarbero()
       .then((data) => {
-        if (mounted) setEmprendedor(data);
+        if (mounted) setBarbero(data);
       })
       .catch(() => {
         // silent fail
@@ -38,8 +46,8 @@ export default function PerfilScreen() {
   }, []);
 
   const profileItems = [
-    { label: 'Emprendimiento', value: emprendedor?.nombre || 'Mi Negocio' },
-    { label: 'Rubro', value: emprendedor?.descripcion || 'Barbería' },
+    { label: 'Barbería', value: barbero?.Barberia?.nombre || 'No vinculada' },
+    { label: 'Barbero', value: barbero?.nombre || 'No disponible' },
     { label: 'Email', value: session?.user?.email || 'No disponible' },
   ];
 
@@ -53,7 +61,7 @@ export default function PerfilScreen() {
         <View style={styles.hero}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {(emprendedor?.nombre || 'MN')
+              {(barbero?.nombre || 'BR')
                 .split(' ')
                 .map((n) => n[0])
                 .join('')
@@ -74,6 +82,40 @@ export default function PerfilScreen() {
               <Text style={styles.value}>{item.value}</Text>
             </View>
           ))}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Configuración</Text>
+
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={() => router.push('/(tabs)/perfil/horario')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuRowLeft}>
+              <Ionicons name="time-outline" size={20} color="#0F172A" />
+              <View>
+                <Text style={styles.menuTitle}>Horario habitual</Text>
+                <Text style={styles.menuSubtitle}>Días y franja horaria de trabajo</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuRow, styles.menuRowLast]}
+            onPress={() => router.push('/(tabs)/perfil/excepciones')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuRowLeft}>
+              <Ionicons name="calendar-outline" size={20} color="#0F172A" />
+              <View>
+                <Text style={styles.menuTitle}>Excepciones</Text>
+                <Text style={styles.menuSubtitle}>Bloquear franjas o días puntuales</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -169,6 +211,39 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 16,
     fontWeight: '600',
+  },
+  sectionLabel: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomColor: '#E2E8F0',
+    borderBottomWidth: 1,
+  },
+  menuRowLast: {
+    borderBottomWidth: 0,
+  },
+  menuRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuTitle: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  menuSubtitle: {
+    color: '#64748B',
+    fontSize: 13,
+    marginTop: 2,
   },
   logoutButton: {
     flexDirection: 'row',

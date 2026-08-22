@@ -33,7 +33,10 @@ export default function ConfirmModal({
               <Text style={styles.cancelText}>{cancelText}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, isDestructive ? styles.destructiveButton : styles.confirmButton]}
+              style={[
+                styles.button,
+                isDestructive ? styles.destructiveButton : styles.confirmButton,
+              ]}
               onPress={onConfirm}
             >
               <Text style={styles.confirmText}>{confirmText}</Text>

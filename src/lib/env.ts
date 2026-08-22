@@ -6,7 +6,11 @@ import Constants from 'expo-constants';
 const extra = Constants.expoConfig?.extra ?? {};
 
 function getEnvVar(name: string, fallback?: string): string | undefined {
-  return (process.env as Record<string, string | undefined>)[name] ?? (extra as Record<string, string | undefined>)[name] ?? fallback;
+  return (
+    (process.env as Record<string, string | undefined>)[name] ??
+    (extra as Record<string, string | undefined>)[name] ??
+    fallback
+  );
 }
 
 export const ENV = {

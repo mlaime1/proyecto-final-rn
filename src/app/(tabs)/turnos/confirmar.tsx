@@ -137,7 +137,8 @@ export default function ConfirmarTurnoScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      // Android: el resize nativo maneja el teclado; 'height' colapsaba el header.
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <StatusBar barStyle="dark-content" />
 

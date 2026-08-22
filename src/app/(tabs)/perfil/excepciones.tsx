@@ -12,6 +12,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -227,154 +229,167 @@ export default function ExcepcionesScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'right', 'left']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={20} color="#007AFF" />
-          <Text style={styles.backText}>Perfil</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Horario</Text>
-        <View style={{ width: 60 }} />
-      </View>
-
-      {loadingBarbero ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.ink} />
+      <KeyboardAvoidingView
+        style={styles.kav}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={20} color="#007AFF" />
+            <Text style={styles.backText}>Perfil</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Horario</Text>
+          <View style={{ width: 60 }} />
         </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.screen}>
-          <Text style={styles.h1}>Excepciones</Text>
-          <Text style={styles.intro}>
-            Bloqueá una franja o todo el día en una fecha puntual, por fuera de tu horario habitual.
-          </Text>
 
-          <Text style={styles.label}>Elegí el día</Text>
-          <DaySelectField
-            maxDays={10}
-            selected={fechaSeleccionada}
-            onSelect={(fecha) => {
-              setFechaSeleccionada(fecha);
-              resetSeleccion();
-              cargarBloqueos(fecha);
-            }}
-          />
-
-          {!fechaSeleccionada && (
-            <Text style={styles.emptyHint}>Elegí un día arriba para configurar una excepción.</Text>
-          )}
-
-          {fechaSeleccionada && !esLaboral && (
-            <Text style={styles.warningText}>
-              Ese día no está dentro de tu horario habitual, no hace falta bloquearlo.
+        {loadingBarbero ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color={colors.ink} />
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
+            <Text style={styles.h1}>Excepciones</Text>
+            <Text style={styles.intro}>
+              Bloqueá una franja o todo el día en una fecha puntual, por fuera de tu horario
+              habitual.
             </Text>
-          )}
 
-          {fechaSeleccionada && esLaboral && loadingBloqueos && (
-            <ActivityIndicator color={colors.ink} style={{ marginTop: spacing(6) }} />
-          )}
+            <Text style={styles.label}>Elegí el día</Text>
+            <DaySelectField
+              maxDays={10}
+              selected={fechaSeleccionada}
+              onSelect={(fecha) => {
+                setFechaSeleccionada(fecha);
+                resetSeleccion();
+                cargarBloqueos(fecha);
+              }}
+            />
 
-          {fechaSeleccionada && esLaboral && !loadingBloqueos && bloqueoDiaCompletoExistente && (
-            <View style={styles.fullDayBlock}>
-              <Text style={styles.fullDayText}>
-                Ya bloqueaste este día completo
-                {bloqueoDiaCompletoExistente.nota ? ` · ${bloqueoDiaCompletoExistente.nota}` : ''}.
+            {!fechaSeleccionada && (
+              <Text style={styles.emptyHint}>
+                Elegí un día arriba para configurar una excepción.
               </Text>
-              <TouchableOpacity
-                onPress={() => eliminarBloqueo(bloqueoDiaCompletoExistente.id)}
-                disabled={mutando}
-              >
-                <Text style={styles.deleteLink}>Eliminar bloqueo</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+            )}
 
-          {fechaSeleccionada && esLaboral && !loadingBloqueos && !bloqueoDiaCompletoExistente && (
-            <>
-              {parcialesExistentes.length > 0 && (
-                <>
-                  <Text style={styles.label}>Ya bloqueado este día</Text>
-                  {parcialesExistentes
-                    .slice()
-                    .sort((a, b) => minutosDesde(a.horaInicio!) - minutosDesde(b.horaInicio!))
-                    .map((b) => (
-                      <View key={b.id} style={styles.existingRow}>
-                        <View style={{ flexShrink: 1 }}>
-                          <Text style={styles.existingHora}>
-                            {b.horaInicio}–{b.horaFin}
-                          </Text>
-                          {b.nota && <Text style={styles.existingNota}>{b.nota}</Text>}
-                        </View>
-                        <TouchableOpacity onPress={() => eliminarBloqueo(b.id)} disabled={mutando}>
-                          <Text style={styles.deleteLink}>Eliminar</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                </>
-              )}
+            {fechaSeleccionada && !esLaboral && (
+              <Text style={styles.warningText}>
+                Ese día no está dentro de tu horario habitual, no hace falta bloquearlo.
+              </Text>
+            )}
 
-              <View style={styles.diaCompletoRow}>
-                <Text style={styles.diaCompletoText}>Bloquear el día completo</Text>
-                <Switch
-                  value={diaCompleto}
-                  onValueChange={setDiaCompleto}
-                  disabled={parcialesExistentes.length > 0}
-                  trackColor={{ false: colors.line, true: colors.danger }}
-                  thumbColor={colors.white}
-                />
-              </View>
-              {parcialesExistentes.length > 0 && (
-                <Text style={styles.errorText}>
-                  Ya hay bloqueos cargados este día — eliminalos primero si querés bloquear el día
-                  completo.
+            {fechaSeleccionada && esLaboral && loadingBloqueos && (
+              <ActivityIndicator color={colors.ink} style={{ marginTop: spacing(6) }} />
+            )}
+
+            {fechaSeleccionada && esLaboral && !loadingBloqueos && bloqueoDiaCompletoExistente && (
+              <View style={styles.fullDayBlock}>
+                <Text style={styles.fullDayText}>
+                  Ya bloqueaste este día completo
+                  {bloqueoDiaCompletoExistente.nota ? ` · ${bloqueoDiaCompletoExistente.nota}` : ''}
+                  .
                 </Text>
-              )}
+                <TouchableOpacity
+                  onPress={() => eliminarBloqueo(bloqueoDiaCompletoExistente.id)}
+                  disabled={mutando}
+                >
+                  <Text style={styles.deleteLink}>Eliminar bloqueo</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-              {!diaCompleto && (
-                <>
-                  <Text style={styles.label}>Tocá los horarios que querés bloquear</Text>
-                  <TimeSlotGrid
-                    horaInicio={horaApertura}
-                    horaFin={horaCierre}
-                    nuevos={nuevosSlots}
-                    existentes={slotsExistentesSet}
-                    onToggle={toggleSlot}
-                  />
-                </>
-              )}
-
-              <Text style={[styles.label, { marginTop: spacing(6) }]}>
-                Nota <Text style={styles.optional}>(opcional)</Text>
-              </Text>
-              <TextInput
-                style={styles.notaInput}
-                placeholder="Ej: turno médico"
-                placeholderTextColor="#9a9ea6"
-                value={nota}
-                onChangeText={setNota}
-                maxLength={80}
-              />
-
-              <TouchableOpacity
-                style={[styles.btnPrimary, !puedeGuardar && styles.btnDisabled]}
-                onPress={guardarBloqueo}
-                disabled={!puedeGuardar}
-                activeOpacity={0.85}
-              >
-                {mutando ? (
-                  <ActivityIndicator color={colors.white} />
-                ) : (
-                  <Text style={styles.btnPrimaryText}>Guardar bloqueo</Text>
+            {fechaSeleccionada && esLaboral && !loadingBloqueos && !bloqueoDiaCompletoExistente && (
+              <>
+                {parcialesExistentes.length > 0 && (
+                  <>
+                    <Text style={styles.label}>Ya bloqueado este día</Text>
+                    {parcialesExistentes
+                      .slice()
+                      .sort((a, b) => minutosDesde(a.horaInicio!) - minutosDesde(b.horaInicio!))
+                      .map((b) => (
+                        <View key={b.id} style={styles.existingRow}>
+                          <View style={{ flexShrink: 1 }}>
+                            <Text style={styles.existingHora}>
+                              {b.horaInicio}–{b.horaFin}
+                            </Text>
+                            {b.nota && <Text style={styles.existingNota}>{b.nota}</Text>}
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => eliminarBloqueo(b.id)}
+                            disabled={mutando}
+                          >
+                            <Text style={styles.deleteLink}>Eliminar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                  </>
                 )}
-              </TouchableOpacity>
-            </>
-          )}
-        </ScrollView>
-      )}
+
+                <View style={styles.diaCompletoRow}>
+                  <Text style={styles.diaCompletoText}>Bloquear el día completo</Text>
+                  <Switch
+                    value={diaCompleto}
+                    onValueChange={setDiaCompleto}
+                    disabled={parcialesExistentes.length > 0}
+                    trackColor={{ false: colors.line, true: colors.danger }}
+                    thumbColor={colors.white}
+                  />
+                </View>
+                {parcialesExistentes.length > 0 && (
+                  <Text style={styles.errorText}>
+                    Ya hay bloqueos cargados este día — eliminalos primero si querés bloquear el día
+                    completo.
+                  </Text>
+                )}
+
+                {!diaCompleto && (
+                  <>
+                    <Text style={styles.label}>Tocá los horarios que querés bloquear</Text>
+                    <TimeSlotGrid
+                      horaInicio={horaApertura}
+                      horaFin={horaCierre}
+                      nuevos={nuevosSlots}
+                      existentes={slotsExistentesSet}
+                      onToggle={toggleSlot}
+                    />
+                  </>
+                )}
+
+                <Text style={[styles.label, { marginTop: spacing(6) }]}>
+                  Nota <Text style={styles.optional}>(opcional)</Text>
+                </Text>
+                <TextInput
+                  style={styles.notaInput}
+                  placeholder="Ej: turno médico"
+                  placeholderTextColor="#9a9ea6"
+                  value={nota}
+                  onChangeText={setNota}
+                  maxLength={80}
+                />
+
+                <TouchableOpacity
+                  style={[styles.btnPrimary, !puedeGuardar && styles.btnDisabled]}
+                  onPress={guardarBloqueo}
+                  disabled={!puedeGuardar}
+                  activeOpacity={0.85}
+                >
+                  {mutando ? (
+                    <ActivityIndicator color={colors.white} />
+                  ) : (
+                    <Text style={styles.btnPrimaryText}>Guardar bloqueo</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </ScrollView>
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
+  kav: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

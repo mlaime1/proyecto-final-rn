@@ -117,9 +117,7 @@ export default function PerfilScreen() {
             <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
           </TouchableOpacity>
         </View>
-      </ScrollView>
 
-      <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.logoutButton, signingOut && styles.logoutButtonDisabled]}
           onPress={handleSignOut}
@@ -134,7 +132,7 @@ export default function PerfilScreen() {
             </>
           )}
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -156,13 +154,6 @@ const styles = StyleSheet.create({
   hero: {
     alignItems: 'center',
     gap: 10,
-  },
-  footer: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
   },
   avatar: {
     alignItems: 'center',

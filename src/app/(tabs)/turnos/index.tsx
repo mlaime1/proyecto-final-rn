@@ -1,18 +1,60 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, Text, FlatList, RefreshControl } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+// index.tsx — Agenda "Mis turnos"
+// Lista de turnos filtrable por día (DayStrip) y por estado (chips),
+// según el mock de referencia con paleta violeta. Sin header propio ni
+// FAB: respeta el chrome actual (Screen + tab bar).
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import Screen from '@/components/ui/Screen';
-import Card from '@/components/ui/Card';
+import DayStrip, { buildDayRange, dateKey } from '@/components/turnos/DayStrip';
+import TurnoStatusPill from '@/components/turnos/TurnoStatusPill';
+import { colors, radius } from '@/components/turnos/theme';
 import { getTurnos, TurnoUI } from '@/services/turnos.service';
 
+type Filtro = 'todos' | 'confirmados';
+
+function formatTime(inicio: string): string {
+  const date = new Date(inicio);
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function formatServicioLine(turno: TurnoUI): string {
+  const parts = [turno.servicio_nombre];
+  if (turno.servicio_precio != null) {
+    parts.push(`$${turno.servicio_precio.toLocaleString('es-AR')}`);
+  }
+  if (turno.servicio_duracion != null) {
+    parts.push(`${turno.servicio_duracion} min`);
+  }
+  return parts.join(' · ');
+}
+
 export default function TurnosScreen() {
+  const router = useRouter();
   const [turnos, setTurnos] = useState<TurnoUI[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<Date>(() => new Date());
+  const [filtro, setFiltro] = useState<Filtro>('todos');
 
   const loadTurnos = useCallback(async () => {
-    const data = await getTurnos();
-    setTurnos(data);
+    try {
+      setError(null);
+      const data = await getTurnos();
+      setTurnos(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron cargar los turnos.');
+    }
   }, []);
 
   useEffect(() => {
@@ -34,34 +76,213 @@ export default function TurnosScreen() {
     setRefreshing(false);
   };
 
-  if (loading) return <Text style={styles.center}>Cargando...</Text>;
+  const dias = useMemo(() => buildDayRange(), []);
+  const selectedKey = dateKey(selectedDay);
+
+  const turnosDelDia = useMemo(
+    () =>
+      turnos.filter(
+        (t) =>
+          dateKey(new Date(t.inicio)) === selectedKey &&
+          (filtro === 'todos' || t.estado === 'confirmado'),
+      ),
+    [turnos, selectedKey, filtro],
+  );
 
   return (
     <Screen>
-      <FlatList
-        data={turnos}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <Card turno={item} />}
-        ListEmptyComponent={<Text style={styles.empty}>No hay turnos</Text>}
-        contentContainerStyle={styles.list}
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      />
+      >
+        <DayStrip days={dias} selected={selectedDay} onSelect={setSelectedDay} />
+
+        <View style={styles.toolsRow}>
+          <Chip label="Todos" active={filtro === 'todos'} onPress={() => setFiltro('todos')} />
+          <Chip
+            label="Confirmados"
+            active={filtro === 'confirmados'}
+            onPress={() => setFiltro('confirmados')}
+          />
+          <TouchableOpacity
+            style={styles.nuevoBtn}
+            activeOpacity={0.85}
+            onPress={() => router.push('/(tabs)/turnos/nuevo')}
+          >
+            <Text style={styles.nuevoBtnText}>+ Nuevo</Text>
+          </TouchableOpacity>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator style={styles.loader} color={colors.primary} />
+        ) : error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : (
+          <View style={styles.agendaCard}>
+            {turnosDelDia.length === 0 ? (
+              <Text style={styles.emptyText}>No hay turnos para este día</Text>
+            ) : (
+              turnosDelDia.map((turno, index) => (
+                <SlotRow
+                  key={turno.id}
+                  turno={turno}
+                  isLast={index === turnosDelDia.length - 1}
+                  onPress={() => router.push(`/turnos/${turno.id}`)}
+                />
+              ))
+            )}
+          </View>
+        )}
+      </ScrollView>
     </Screen>
   );
 }
 
+function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      style={[styles.chip, active && styles.chipActive]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function SlotRow({
+  turno,
+  isLast,
+  onPress,
+}: {
+  turno: TurnoUI;
+  isLast: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.slot, !isLast && styles.slotBorder]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.slotTime}>{formatTime(turno.inicio)}</Text>
+
+      <View style={styles.slotInfo}>
+        <Text style={styles.slotCliente} numberOfLines={1}>
+          {turno.cliente_nombre}
+        </Text>
+        <Text style={styles.slotServicio} numberOfLines={1}>
+          {formatServicioLine(turno)}
+        </Text>
+      </View>
+
+      <TurnoStatusPill estado={turno.estado} />
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
-  list: {
-    padding: 16,
-    gap: 12,
+  flex: { flex: 1 },
+  content: {
+    paddingBottom: 24,
   },
-  empty: {
+
+  toolsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 14,
+  },
+  chip: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+    borderRadius: radius.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 11,
+    alignItems: 'center',
+  },
+  chipActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primaryLine,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.inkSoft,
+  },
+  chipTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  nuevoBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+  },
+  nuevoBtnText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  loader: {
+    marginTop: 40,
+  },
+  errorText: {
     textAlign: 'center',
-    color: '#64748B',
+    color: colors.red,
+    fontSize: 13,
     marginTop: 20,
   },
-  center: {
+
+  agendaCard: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+  },
+  emptyText: {
     textAlign: 'center',
-    marginTop: 40,
+    color: colors.inkSoft,
+    fontSize: 12.5,
+    paddingVertical: 22,
+  },
+
+  slot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+  },
+  slotBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  slotTime: {
+    width: 42,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: colors.inkSoft,
+  },
+  slotInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  slotCliente: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  slotServicio: {
+    marginTop: 3,
+    fontSize: 11.5,
+    color: colors.inkSoft,
   },
 });

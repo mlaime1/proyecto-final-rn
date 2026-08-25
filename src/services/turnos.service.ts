@@ -20,6 +20,8 @@ export type TurnoUI = {
   servicio_id: number;
   cliente_nombre: string;
   servicio_nombre: string;
+  servicio_precio: number | null;
+  servicio_duracion: number | null;
   estado: string;
 };
 
@@ -30,7 +32,7 @@ type TurnoConRelaciones = {
   servicio_id: number;
   estado: string | null;
   Cliente: { nombre: string | null } | null;
-  Servicio: { nombre: string | null } | null;
+  Servicio: { nombre: string | null; precio: number | null; duracion: number | null } | null;
 };
 
 export type TurnoPorDia = {
@@ -94,7 +96,7 @@ export async function getTurnos(): Promise<TurnoUI[]> {
       servicio_id,
       estado,
       Cliente ( nombre ),
-      Servicio ( nombre )
+      Servicio ( nombre, precio, duracion )
     `,
     )
     .eq('barbero_id', barbero.id)
@@ -109,6 +111,8 @@ export async function getTurnos(): Promise<TurnoUI[]> {
     servicio_id: t.servicio_id,
     cliente_nombre: t.Cliente?.nombre ?? 'Sin cliente',
     servicio_nombre: t.Servicio?.nombre ?? 'Sin servicio',
+    servicio_precio: t.Servicio?.precio ?? null,
+    servicio_duracion: t.Servicio?.duracion ?? null,
     estado: t.estado ?? 'confirmado',
   }));
 }

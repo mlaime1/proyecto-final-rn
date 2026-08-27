@@ -1,10 +1,15 @@
 import Screen from '@/components/ui/Screen';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getBarbero } from '@/services/barbero.service';
 import { getTurnos, TurnoUI } from '@/services/turnos.service';
+
+/* =========================
+   Constants
+========================= */
+const MAX_PROXIMOS_TURNOS = 4;
 
 /* =========================
    Helpers
@@ -62,21 +67,48 @@ const getEstadoTextColor = (estado: string) => {
   }
 };
 
+const selectProximosTurnos = (turnos: TurnoUI[]): TurnoUI[] => {
+  const now = Date.now();
+
+  return turnos
+    .filter((turno) => {
+      if (turno.estado === 'cancelado') return false;
+      const inicioTime = new Date(turno.inicio).getTime();
+      return Number.isFinite(inicioTime) && inicioTime >= now;
+    })
+    .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime())
+    .slice(0, MAX_PROXIMOS_TURNOS);
+};
+
+const formatServicioLine = (turno: TurnoUI): string => {
+  if (turno.servicio_duracion != null) {
+    return `${turno.servicio_nombre} · ${turno.servicio_duracion} min`;
+  }
+  return turno.servicio_nombre;
+};
+
 /* =========================
-   Card
+   Card - compact layout
 ========================= */
 type TurnoCardProps = {
   turno: TurnoUI;
   isLast: boolean;
+  onPress: () => void;
 };
 
-function TurnoCard({ turno, isLast }: TurnoCardProps) {
+function TurnoCard({ turno, isLast, onPress }: TurnoCardProps) {
   const fecha = formatDate(turno.inicio);
   const hora = formatTime(turno.inicio);
   const estado = turno.estado;
 
   return (
-    <View style={[styles.turnoCard, !isLast && styles.turnoCardWithBorder]}>
+    <TouchableOpacity
+      style={[styles.turnoCard, !isLast && styles.turnoCardWithBorder]}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`Turno de ${turno.cliente_nombre} el ${fecha} a las ${hora}`}
+    >
       <View style={styles.turnoTimelineLeft}>
         <View style={styles.timelineDot} />
         {!isLast && <View style={styles.timelineLine} />}
@@ -84,11 +116,9 @@ function TurnoCard({ turno, isLast }: TurnoCardProps) {
 
       <View style={styles.turnoContent}>
         <View style={styles.turnoHeader}>
-          <View>
-            <Text style={styles.turnoDate}>{fecha}</Text>
-            <Text style={styles.turnoTime}>{hora}</Text>
-          </View>
-
+          <Text style={styles.turnoDateTime} numberOfLines={1}>
+            {fecha} · {hora}
+          </Text>
           <View style={[styles.estadoBadge, { backgroundColor: getEstadoBadgeColor(estado) }]}>
             <Text style={[styles.estadoText, { color: getEstadoTextColor(estado) }]}>
               {estado.charAt(0).toUpperCase() + estado.slice(1)}
@@ -98,17 +128,21 @@ function TurnoCard({ turno, isLast }: TurnoCardProps) {
 
         <View style={styles.turnoDetails}>
           <View style={styles.turnoDetailRow}>
-            <MaterialIcons name="person" size={16} color="#94A3B8" />
-            <Text style={styles.turnoDetailText}>{turno.cliente_nombre}</Text>
+            <Ionicons name="person-outline" size={14} color="#94A3B8" />
+            <Text style={styles.turnoClienteText} numberOfLines={1}>
+              {turno.cliente_nombre}
+            </Text>
           </View>
 
           <View style={styles.turnoDetailRow}>
-            <MaterialIcons name="build" size={16} color="#94A3B8" />
-            <Text style={styles.turnoDetailText}>{turno.servicio_nombre}</Text>
+            <Ionicons name="cut-outline" size={14} color="#94A3B8" />
+            <Text style={styles.turnoServicioText} numberOfLines={1}>
+              {formatServicioLine(turno)}
+            </Text>
           </View>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -141,6 +175,8 @@ export default function Home() {
       setLoading(false);
     }
   };
+
+  const proximosTurnos = useMemo(() => selectProximosTurnos(turnos), [turnos]);
 
   return (
     <Screen>
@@ -179,18 +215,28 @@ export default function Home() {
           </TouchableOpacity>
         </View>
 
-        {/* Turnos */}
+        {/* Próximos turnos */}
         <View style={styles.turnosSection}>
-          <Text style={styles.sectionTitle}>Próx Turnos</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Próximos turnos</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/turnos')} hitSlop={8}>
+              <Text style={styles.sectionAction}>Ver todos</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.turnosContainer}>
             {loading ? (
               <Text style={styles.emptyText}>Cargando...</Text>
-            ) : turnos.length === 0 ? (
-              <Text style={styles.emptyText}>No hay turnos</Text>
+            ) : proximosTurnos.length === 0 ? (
+              <Text style={styles.emptyText}>No tenés próximos turnos</Text>
             ) : (
-              turnos.map((turno, index) => (
-                <TurnoCard key={turno.id} turno={turno} isLast={index === turnos.length - 1} />
+              proximosTurnos.map((turno, index) => (
+                <TurnoCard
+                  key={turno.id}
+                  turno={turno}
+                  isLast={index === proximosTurnos.length - 1}
+                  onPress={() => router.push(`/turnos/${turno.id}`)}
+                />
               ))
             )}
           </View>
@@ -257,15 +303,28 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
 
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 12,
+  },
+
+  sectionAction: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4C1D95',
   },
 
   turnosContainer: {
     backgroundColor: '#FFF',
-    padding: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -273,7 +332,7 @@ const styles = StyleSheet.create({
 
   turnoCard: {
     flexDirection: 'row',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
 
   turnoCardWithBorder: {
@@ -282,46 +341,49 @@ const styles = StyleSheet.create({
   },
 
   turnoTimelineLeft: {
-    width: 24,
+    width: 20,
     alignItems: 'center',
   },
 
   timelineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#4C1D95',
+    marginTop: 6,
   },
 
   timelineLine: {
     flex: 1,
     width: 2,
     backgroundColor: '#E2E8F0',
+    marginTop: 4,
   },
 
   turnoContent: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 8,
+    gap: 6,
   },
 
   turnoHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
   },
 
-  turnoDate: {
+  turnoDateTime: {
+    fontSize: 13,
     fontWeight: '700',
-  },
-
-  turnoTime: {
-    fontSize: 16,
-    color: '#4C1D95',
+    color: '#0F172A',
+    flexShrink: 1,
   },
 
   estadoBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
   },
 
   estadoText: {
@@ -330,7 +392,6 @@ const styles = StyleSheet.create({
   },
 
   turnoDetails: {
-    marginTop: 8,
     gap: 4,
   },
 
@@ -340,13 +401,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  turnoDetailText: {
+  turnoClienteText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    flexShrink: 1,
+  },
+
+  turnoServicioText: {
     fontSize: 12,
     color: '#64748B',
+    flexShrink: 1,
   },
 
   emptyText: {
     textAlign: 'center',
     color: '#94A3B8',
+    paddingVertical: 16,
+    fontSize: 13,
   },
 });

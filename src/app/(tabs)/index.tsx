@@ -1,5 +1,5 @@
 import Screen from '@/components/ui/Screen';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -45,6 +45,9 @@ const formatTime = (dateString: string) => {
   });
 };
 
+const formatDateTimeLong = (dateString: string) =>
+  `${formatDate(dateString)} · ${formatTime(dateString)}`;
+
 const getEstadoBadgeColor = (estado: string) => {
   switch (estado) {
     case 'confirmado':
@@ -80,6 +83,21 @@ const selectProximosTurnos = (turnos: TurnoUI[]): TurnoUI[] => {
     .slice(0, MAX_PROXIMOS_TURNOS);
 };
 
+const selectUltimoTurno = (turnos: TurnoUI[]): TurnoUI | null => {
+  const now = Date.now();
+
+  const pasados = turnos.filter((turno) => {
+    if (turno.estado === 'cancelado') return false;
+    const inicioTime = new Date(turno.inicio).getTime();
+    return Number.isFinite(inicioTime) && inicioTime < now;
+  });
+
+  if (pasados.length === 0) return null;
+
+  pasados.sort((a, b) => new Date(b.inicio).getTime() - new Date(a.inicio).getTime());
+  return pasados[0];
+};
+
 const formatServicioLine = (turno: TurnoUI): string => {
   if (turno.servicio_duracion != null) {
     return `${turno.servicio_nombre} · ${turno.servicio_duracion} min`;
@@ -88,7 +106,7 @@ const formatServicioLine = (turno: TurnoUI): string => {
 };
 
 /* =========================
-   Card - compact layout
+   Cards
 ========================= */
 type TurnoCardProps = {
   turno: TurnoUI;
@@ -146,6 +164,50 @@ function TurnoCard({ turno, isLast, onPress }: TurnoCardProps) {
   );
 }
 
+function UltimoTurnoCard({ turno }: { turno: TurnoUI | null }) {
+  if (!turno) {
+    return (
+      <View style={styles.ultimoTurnoCard}>
+        <View style={styles.ultimoTurnoHeader}>
+          <Text style={styles.ultimoTurnoTitle}>Último turno</Text>
+          <View style={styles.ultimoTurnoIconWrap}>
+            <Ionicons name="time-outline" size={16} color="#4C1D95" />
+          </View>
+        </View>
+        <Text style={styles.ultimoTurnoEmpty}>Todavía no hay turnos anteriores</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={styles.ultimoTurnoCard}
+      accessibilityLabel={`Último turno de ${turno.cliente_nombre}`}
+    >
+      <View style={styles.ultimoTurnoHeader}>
+        <Text style={styles.ultimoTurnoTitle}>Último turno</Text>
+        <Text style={styles.ultimoTurnoDate}>{formatDateTimeLong(turno.inicio)}</Text>
+      </View>
+
+      <View style={styles.ultimoTurnoDetails}>
+        <View style={styles.turnoDetailRow}>
+          <Ionicons name="person-outline" size={14} color="#94A3B8" />
+          <Text style={styles.turnoClienteText} numberOfLines={1}>
+            {turno.cliente_nombre}
+          </Text>
+        </View>
+
+        <View style={styles.turnoDetailRow}>
+          <Ionicons name="cut-outline" size={14} color="#94A3B8" />
+          <Text style={styles.turnoServicioText} numberOfLines={1}>
+            {formatServicioLine(turno)}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 /* =========================
    Screen
 ========================= */
@@ -177,71 +239,72 @@ export default function Home() {
   };
 
   const proximosTurnos = useMemo(() => selectProximosTurnos(turnos), [turnos]);
+  const ultimoTurno = useMemo(() => selectUltimoTurno(turnos), [turnos]);
 
   return (
     <Screen>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Perfil */}
-        <View style={styles.profileSection}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {userName
-                .split(' ')
-                .map((n) => n[0])
-                .join('')}
-            </Text>
-          </View>
-          <Text style={styles.greeting}>Hola, {userName}</Text>
-        </View>
-
-        {/* Acciones */}
-        <View style={styles.quickActionsContainer}>
-          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(tabs)/turnos')}>
-            <MaterialIcons name="event" size={24} color="#4C1D95" />
-            <Text style={styles.actionCardLabel}>Turnos</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/(tabs)/turnos/nuevo')}
-          >
-            <MaterialIcons name="add-circle-outline" size={24} color="#4C1D95" />
-            <Text style={styles.actionCardLabel}>Nuevo</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/(tabs)/perfil')}>
-            <Ionicons name="time-outline" size={24} color="#4C1D95" />
-            <Text style={styles.actionCardLabel}>Procesos</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Próximos turnos */}
-        <View style={styles.turnosSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Próximos turnos</Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/turnos')} hitSlop={8}>
-              <Text style={styles.sectionAction}>Ver todos</Text>
-            </TouchableOpacity>
+      <View style={styles.wrapper}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Perfil */}
+          <View style={styles.profileSection}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {userName
+                  .split(' ')
+                  .map((n) => n[0])
+                  .join('')}
+              </Text>
+            </View>
+            <Text style={styles.greeting}>Hola, {userName}</Text>
           </View>
 
-          <View style={styles.turnosContainer}>
-            {loading ? (
-              <Text style={styles.emptyText}>Cargando...</Text>
-            ) : proximosTurnos.length === 0 ? (
-              <Text style={styles.emptyText}>No tenés próximos turnos</Text>
-            ) : (
-              proximosTurnos.map((turno, index) => (
-                <TurnoCard
-                  key={turno.id}
-                  turno={turno}
-                  isLast={index === proximosTurnos.length - 1}
-                  onPress={() => router.push(`/turnos/${turno.id}`)}
-                />
-              ))
-            )}
+          {/* Último turno - no clickeable */}
+          <View style={styles.ultimoTurnoSection}>
+            <UltimoTurnoCard turno={ultimoTurno} />
           </View>
-        </View>
-      </ScrollView>
+
+          {/* Próximos turnos */}
+          <View style={styles.turnosSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Próximos turnos</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/turnos')} hitSlop={8}>
+                <Text style={styles.sectionAction}>Ver todos</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.turnosContainer}>
+              {loading ? (
+                <Text style={styles.emptyText}>Cargando...</Text>
+              ) : proximosTurnos.length === 0 ? (
+                <Text style={styles.emptyText}>No tenés próximos turnos</Text>
+              ) : (
+                proximosTurnos.map((turno, index) => (
+                  <TurnoCard
+                    key={turno.id}
+                    turno={turno}
+                    isLast={index === proximosTurnos.length - 1}
+                    onPress={() => router.push(`/turnos/${turno.id}`)}
+                  />
+                ))
+              )}
+            </View>
+          </View>
+        </ScrollView>
+
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push('/(tabs)/turnos/nuevo')}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Crear nuevo turno"
+        >
+          <Ionicons name="add" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
     </Screen>
   );
 }
@@ -250,7 +313,15 @@ export default function Home() {
    Styles
 ========================= */
 const styles = StyleSheet.create({
+  wrapper: {
+    flex: 1,
+  },
+
   container: { flex: 1 },
+
+  scrollContent: {
+    paddingBottom: 96,
+  },
 
   profileSection: {
     alignItems: 'center',
@@ -278,25 +349,60 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
 
-  quickActionsContainer: {
-    flexDirection: 'row',
-    gap: 12,
+  ultimoTurnoSection: {
     marginBottom: 24,
   },
 
-  actionCard: {
-    flex: 1,
+  ultimoTurnoCard: {
     backgroundColor: '#FFF',
-    padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    padding: 14,
+    gap: 10,
   },
 
-  actionCardLabel: {
-    marginTop: 8,
+  ultimoTurnoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+
+  ultimoTurnoTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+
+  ultimoTurnoDate: {
     fontSize: 12,
+    fontWeight: '600',
+    color: '#4C1D95',
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+
+  ultimoTurnoIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  ultimoTurnoDetails: {
+    gap: 6,
+  },
+
+  ultimoTurnoEmpty: {
+    fontSize: 13,
+    color: '#94A3B8',
+    textAlign: 'center',
+    paddingVertical: 4,
   },
 
   turnosSection: {
@@ -419,5 +525,22 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     paddingVertical: 16,
     fontSize: 13,
+  },
+
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#4C1D95',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
   },
 });

@@ -14,15 +14,13 @@ import { useEffect, useState } from 'react';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import AlertModal from '@/components/ui/AlertModal';
 import ModificarTurnoModal from '@/components/ui/ModificarTurnoModal';
+import TurnoHeader from '@/components/turnos/TurnoHeader';
+import TurnoStatusPill from '@/components/turnos/TurnoStatusPill';
+import { colors, radius } from '@/components/turnos/theme';
 
 const STATUS_LABELS: Record<string, string> = {
   confirmado: 'Confirmado',
   cancelado: 'Cancelado',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  confirmado: '#2563EB',
-  cancelado: '#64748B',
 };
 
 const MONTHS = [
@@ -162,7 +160,7 @@ export default function TurnoDetalleScreen() {
     return (
       <Screen>
         <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.emptyText, { marginTop: 12 }]}>Cargando turno...</Text>
         </View>
       </Screen>
@@ -174,8 +172,8 @@ export default function TurnoDetalleScreen() {
       <Screen>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>{error || 'Turno no encontrado.'}</Text>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
-            <Text style={styles.secondaryButtonText}>Volver</Text>
+          <TouchableOpacity style={styles.outlineButton} onPress={() => router.back()}>
+            <Text style={styles.outlineButtonText}>Volver</Text>
           </TouchableOpacity>
         </View>
       </Screen>
@@ -185,32 +183,20 @@ export default function TurnoDetalleScreen() {
   const start = new Date(turno.inicio);
   const duracionMs = (turno.duracion_minutos || 30) * 60000;
   const end = new Date(start.getTime() + duracionMs);
-  const statusColor = STATUS_COLORS[turno.estado] ?? '#0F172A';
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={20} color="#007AFF" />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Turnos</Text>
-        <View style={{ width: 60 }} />
-      </View>
+      <TurnoHeader title="Turnos" />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.iconContainer}>
-          <Ionicons name="calendar" size={52} color="#0F172A" />
+          <Ionicons name="calendar" size={44} color={colors.primary} />
         </View>
 
         <View style={styles.detailCard}>
           <View style={styles.detailHeader}>
-            <Text style={styles.sectionTitle}>Cliente</Text>
-            <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-              <Text style={styles.statusBadgeText}>
-                {STATUS_LABELS[turno.estado] ?? turno.estado}
-              </Text>
-            </View>
+            <Text style={styles.sectionLabel}>Cliente</Text>
+            <TurnoStatusPill estado={turno.estado} />
           </View>
 
           <Text style={styles.clientName}>
@@ -218,48 +204,57 @@ export default function TurnoDetalleScreen() {
           </Text>
 
           <View style={styles.infoRow}>
-            <Ionicons name="calendar-outline" size={18} color="#64748B" />
+            <View style={styles.infoIcon}>
+              <Ionicons name="calendar-outline" size={16} color={colors.primary} />
+            </View>
             <Text style={styles.infoText}>{formatLongDate(start)}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Ionicons name="time-outline" size={18} color="#64748B" />
+            <View style={styles.infoIcon}>
+              <Ionicons name="time-outline" size={16} color={colors.primary} />
+            </View>
             <Text style={styles.infoText}>
               {formatTime(start)} - {formatTime(end)}
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Ionicons name="cut-outline" size={18} color="#64748B" />
+            <View style={styles.infoIcon}>
+              <Ionicons name="cut-outline" size={16} color={colors.primary} />
+            </View>
             <Text style={styles.infoText}>
               {turno.Servicio?.nombre ?? 'Servicio no especificado'}
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Ionicons name="card-outline" size={18} color="#64748B" />
+            <View style={styles.infoIcon}>
+              <Ionicons name="card-outline" size={16} color={colors.primary} />
+            </View>
             <Text style={styles.infoText}>{formatCurrency(turno.Servicio?.precio || 0)}</Text>
           </View>
         </View>
 
         <View style={styles.divider} />
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => {}}>
-          <Text style={styles.secondaryButtonText}>Contactar por wsp</Text>
+        <TouchableOpacity style={styles.outlineButton} onPress={() => {}}>
+          <Text style={styles.outlineButtonText}>Contactar por wsp</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.secondaryButton}
+          style={[styles.primaryButton, updating && styles.buttonDisabled]}
+          disabled={updating}
           onPress={() => setModificarModalVisible(true)}
         >
-          <Text style={styles.secondaryButtonText}>Modificar turno</Text>
+          <Text style={styles.primaryButtonText}>Modificar turno</Text>
         </TouchableOpacity>
         {turno.estado !== 'cancelado' && (
           <TouchableOpacity
-            style={[styles.secondaryButton, updating && { opacity: 0.5 }]}
+            style={[styles.ghostDangerButton, updating && styles.buttonDisabled]}
             disabled={updating}
             onPress={() => handleUpdateStatus('cancelado')}
           >
             {updating ? (
-              <ActivityIndicator color="#0F172A" />
+              <ActivityIndicator color={colors.red} />
             ) : (
-              <Text style={styles.secondaryButtonText}>Cancelar turno</Text>
+              <Text style={styles.ghostDangerText}>Cancelar turno</Text>
             )}
           </TouchableOpacity>
         )}
@@ -300,39 +295,18 @@ export default function TurnoDetalleScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    width: 60,
-  },
-  backText: {
-    color: '#007AFF',
-    fontSize: 17,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
   content: {
     gap: 18,
   },
   iconContainer: {
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 10,
   },
   detailCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.line,
     padding: 18,
     gap: 14,
   },
@@ -341,52 +315,80 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  sectionTitle: {
-    fontSize: 18,
+  sectionLabel: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#0F172A',
-  },
-  statusBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  statusBadgeText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 12,
+    color: colors.inkSoft,
     textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   clientName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: 19,
+    fontWeight: '800',
+    color: colors.ink,
+    marginTop: -6,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
+  infoIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   infoText: {
-    color: '#334155',
-    fontSize: 15,
+    color: colors.ink,
+    fontSize: 13.5,
+    fontWeight: '600',
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: colors.line,
     marginVertical: 4,
   },
-  secondaryButton: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 12,
-    paddingVertical: 14,
+  primaryButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 13,
+    height: 46,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  secondaryButtonText: {
-    color: '#0F172A',
+  primaryButtonText: {
+    color: colors.white,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  outlineButton: {
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 13,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  outlineButtonText: {
+    color: colors.primary,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  ghostDangerButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  ghostDangerText: {
+    color: colors.red,
     fontWeight: '700',
+    fontSize: 13.5,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   emptyContainer: {
     flex: 1,
@@ -396,6 +398,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#64748B',
+    color: colors.inkSoft,
   },
 });

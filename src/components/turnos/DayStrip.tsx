@@ -48,9 +48,11 @@ type Props = {
   days: Date[];
   selected: Date;
   onSelect: (day: Date) => void;
+  /** Días no seleccionables (ej. no hábiles): celda gris, sin toque. */
+  isDisabled?: (day: Date) => boolean;
 };
 
-export default function DayStrip({ days, selected, onSelect }: Props) {
+export default function DayStrip({ days, selected, onSelect, isDisabled }: Props) {
   const selectedKey = dateKey(selected);
 
   // Arranca con "hoy" en el borde izquierdo; los días pasados quedan a la
@@ -72,18 +74,37 @@ export default function DayStrip({ days, selected, onSelect }: Props) {
       renderItem={({ item }) => {
         const isSelected = dateKey(item) === selectedKey;
         const esHoy = isToday(item);
+        const isDisabledDay = isDisabled?.(item) ?? false;
         return (
           <TouchableOpacity
-            style={[styles.cell, isSelected && styles.cellSelected]}
-            onPress={() => onSelect(item)}
+            style={[
+              styles.cell,
+              isDisabledDay && styles.cellDisabled,
+              !isDisabledDay && isSelected && styles.cellSelected,
+            ]}
+            onPress={() => !isDisabledDay && onSelect(item)}
+            disabled={isDisabledDay}
             activeOpacity={0.7}
           >
-            <Text style={[styles.dayName, isSelected && styles.textSelected]}>
+            <Text
+              style={[
+                styles.dayName,
+                isDisabledDay && styles.textDisabled,
+                !isDisabledDay && isSelected && styles.textSelected,
+              ]}
+            >
               {DIAS_CORTOS[item.getDay()]}
             </Text>
-            <Text style={[styles.dayNum, isSelected && styles.textSelected]}>{item.getDate()}</Text>
+            <Text
+              style={[
+                styles.dayNum,
+                isDisabledDay && styles.textDisabled,
+                !isDisabledDay && isSelected && styles.textSelected,
+              ]}
+            >
+              {item.getDate()}
+            </Text>
             {/* Spacer de altura fija para no romper getItemLayout */}
-
             <View style={[styles.todayDotSpacer, !isSelected && esHoy && styles.todayDot]} />
           </TouchableOpacity>
         );
@@ -110,6 +131,14 @@ const styles = StyleSheet.create({
   cellSelected: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+  },
+  cellDisabled: {
+    backgroundColor: colors.lineSoft,
+    borderColor: colors.line,
+  },
+  textDisabled: {
+    color: colors.inkSoft,
+    opacity: 0.5,
   },
   dayName: {
     fontSize: 10,

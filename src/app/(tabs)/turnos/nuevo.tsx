@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,9 @@ import { getBarbero, type BarberoConBarberia } from '@/services/barbero.service'
 import { getBloqueosDelDia } from '@/services/bloqueos.service';
 import { getServicios, getTurnosPorDia, type Servicio } from '@/services/turnos.service';
 import { computeOccupiedSlots, generateTimeSlots, isDiaHabil } from '@/lib/availability';
+import DayStrip, { buildDayRange } from '@/components/turnos/DayStrip';
+import TurnoHeader from '@/components/turnos/TurnoHeader';
+import { colors, radius } from '@/components/turnos/theme';
 
 const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = [
@@ -33,13 +36,6 @@ const MONTHS = [
   'Diciembre',
 ];
 
-function formatDate(date: Date): string {
-  const d = date.getDate().toString().padStart(2, '0');
-  const m = (date.getMonth() + 1).toString().padStart(2, '0');
-  const y = date.getFullYear();
-  return `${d}/${m}/${y}`;
-}
-
 function formatDateLong(date: Date): string {
   return `${DAYS_OF_WEEK[date.getDay()]} ${date.getDate()} de ${MONTHS[date.getMonth()]}`;
 }
@@ -52,13 +48,15 @@ export default function NuevoTurnoScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [occupiedSlots, setOccupiedSlots] = useState<string[]>([]);
   const [loadingOccupied, setLoadingOccupied] = useState(false);
   const [occupiedError, setOccupiedError] = useState<string | null>(null);
 
   // Slots generados según apertura/cierre del barbero
   const timeSlots = generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre);
+
+  // Solo días futuros: hoy + 14. Los no hábiles se deshabilitan en el strip.
+  const diasFuturos = useMemo(() => buildDayRange({ back: 0, forward: 14 }), []);
 
   useEffect(() => {
     loadBarbero();
@@ -104,7 +102,7 @@ export default function NuevoTurnoScreen() {
 
       // Si el día seleccionado no es hábil para el barbero, saltar al primero hábil
       if (data && !isDiaHabil(selectedDate, data.dias_habiles)) {
-        const next = Array.from({ length: 14 }, (_, i) => {
+        const next = Array.from({ length: 15 }, (_, i) => {
           const d = new Date();
           d.setDate(new Date().getDate() + i);
           return d;
@@ -127,13 +125,6 @@ export default function NuevoTurnoScreen() {
       setLoadingServices(false);
     }
   };
-
-  // Solo días hábiles del barbero dentro de los próximos 14 días
-  const availableDays: Date[] = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date();
-    d.setDate(new Date().getDate() + i);
-    return d;
-  }).filter((day) => isDiaHabil(day, barbero?.dias_habiles));
 
   const canContinue = selectedService && selectedTime;
 
@@ -168,29 +159,16 @@ export default function NuevoTurnoScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={20} color="#007AFF" />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Turnos</Text>
-        <View style={{ width: 60 }} />
+        <TurnoHeader title="Turnos" />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Calendar icon */}
-        <View style={styles.iconContainer}>
-          <Ionicons name="calendar" size={52} color="#1C1C1E" />
-        </View>
-
         {/* Service selector */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Servicios</Text>
           <TouchableOpacity
             style={styles.dropdown}
-            onPress={() => {
-              setShowServiceDropdown(!showServiceDropdown);
-              setShowDatePicker(false);
-            }}
+            onPress={() => setShowServiceDropdown(!showServiceDropdown)}
             activeOpacity={0.8}
           >
             <Text style={[styles.dropdownText, !selectedService && styles.placeholder]}>
@@ -199,7 +177,7 @@ export default function NuevoTurnoScreen() {
             <Ionicons
               name={showServiceDropdown ? 'chevron-up' : 'chevron-down'}
               size={18}
-              color="#636366"
+              color={colors.inkSoft}
             />
           </TouchableOpacity>
 
@@ -207,7 +185,7 @@ export default function NuevoTurnoScreen() {
             <View style={styles.dropdownMenu}>
               {loadingServices ? (
                 <View style={{ padding: 16, alignItems: 'center' }}>
-                  <ActivityIndicator color="#007AFF" />
+                  <ActivityIndicator color={colors.primary} />
                 </View>
               ) : (
                 services.map((s) => (
@@ -241,56 +219,18 @@ export default function NuevoTurnoScreen() {
           )}
         </View>
 
-        {/* Date selector */}
+        {/* Day selector */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Días</Text>
-          <TouchableOpacity
-            style={styles.dropdown}
-            onPress={() => {
-              setShowDatePicker(!showDatePicker);
-              setShowServiceDropdown(false);
+          <DayStrip
+            days={diasFuturos}
+            selected={selectedDate}
+            onSelect={(day) => {
+              setSelectedDate(day);
+              setSelectedTime(null);
             }}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.dropdownText}>{formatDate(selectedDate)}</Text>
-            <Ionicons
-              name={showDatePicker ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color="#636366"
-            />
-          </TouchableOpacity>
-
-          {showDatePicker && (
-            <View style={styles.dropdownMenu}>
-              <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-                {availableDays.map((day, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={[
-                      styles.dropdownItem,
-                      formatDate(day) === formatDate(selectedDate) && styles.dropdownItemSelected,
-                    ]}
-                    onPress={() => {
-                      setSelectedDate(day);
-                      setShowDatePicker(false);
-                      setSelectedTime(null);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownItemText,
-                        formatDate(day) === formatDate(selectedDate) &&
-                          styles.dropdownItemTextSelected,
-                      ]}
-                    >
-                      {formatDateLong(day)}
-                    </Text>
-                    <Text style={styles.dropdownItemPrice}>{formatDate(day)}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
+            isDisabled={(day) => !isDiaHabil(day, barbero?.dias_habiles)}
+          />
         </View>
 
         {/* Time slots */}
@@ -298,14 +238,14 @@ export default function NuevoTurnoScreen() {
           <Text style={styles.label}>Horarios disponibles</Text>
           {occupiedError && !occupiedError.includes('autenticado') && (
             <View style={styles.errorBanner}>
-              <Ionicons name="alert-circle" size={18} color="#DC2626" />
+              <Ionicons name="alert-circle" size={18} color={colors.red} />
               <Text style={styles.errorText}>{occupiedError}</Text>
             </View>
           )}
           {loadingOccupied ? (
             <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-              <ActivityIndicator color="#007AFF" />
-              <Text style={{ marginTop: 8, color: '#636366' }}>Cargando horarios...</Text>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={{ marginTop: 8, color: colors.inkSoft }}>Cargando horarios...</Text>
             </View>
           ) : (
             <View style={styles.timeGrid}>
@@ -356,7 +296,7 @@ export default function NuevoTurnoScreen() {
         </View>
       </ScrollView>
 
-      {/* Bottom bar */}
+      {/* Summary bar */}
       <View style={styles.bottomBar}>
         <View style={styles.bottomInfo}>
           <Text style={styles.bottomService}>
@@ -387,77 +327,52 @@ export default function NuevoTurnoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingTop: Platform.OS === 'ios' ? 54 : 24,
-    paddingBottom: 12,
     paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-    backgroundColor: '#FFFFFF',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    width: 60,
-  },
-  backText: {
-    color: '#007AFF',
-    fontSize: 17,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1C1C1E',
+    paddingBottom: 4,
   },
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 120,
   },
-  iconContainer: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
   fieldGroup: {
     marginBottom: 20,
   },
   label: {
-    fontSize: 14,
-    color: '#3C3C43',
+    fontSize: 13,
+    color: colors.ink,
     marginBottom: 8,
-    fontWeight: '500',
+    fontWeight: '700',
   },
   dropdown: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#C7C7CC',
-    borderRadius: 8,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
   dropdownText: {
     fontSize: 16,
-    color: '#1C1C1E',
+    color: colors.ink,
   },
   placeholder: {
-    color: '#8E8E93',
+    color: colors.inkSoft,
   },
   dropdownMenu: {
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 8,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
     marginTop: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: colors.ink,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -470,22 +385,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: colors.line,
   },
   dropdownItemSelected: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.primarySoft,
   },
   dropdownItemText: {
     fontSize: 15,
-    color: '#1C1C1E',
+    color: colors.ink,
   },
   dropdownItemTextSelected: {
-    color: '#007AFF',
-    fontWeight: '600',
+    color: colors.primary,
+    fontWeight: '700',
   },
   dropdownItemPrice: {
     fontSize: 13,
-    color: '#8E8E93',
+    color: colors.inkSoft,
   },
   timeGrid: {
     flexDirection: 'row',
@@ -496,53 +411,52 @@ const styles = StyleSheet.create({
   timeSlot: {
     width: '22%',
     paddingVertical: 14,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
+    backgroundColor: colors.white,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.line,
     alignItems: 'center',
     justifyContent: 'center',
   },
   timeSlotSelected: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
-    shadowColor: '#0F172A',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 5,
   },
   timeSlotDisabled: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#F1F5F9',
-    opacity: 0.6,
+    backgroundColor: colors.lineSoft,
+    borderColor: colors.lineSoft,
   },
   timeSlotText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.ink,
   },
   timeSlotTextSelected: {
-    color: '#FFFFFF',
+    color: colors.white,
   },
   timeSlotTextDisabled: {
-    color: '#94A3B8',
+    color: colors.inkSoft,
     textDecorationLine: 'line-through',
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    borderColor: '#DC2626',
+    backgroundColor: colors.redBg,
+    borderColor: colors.red,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 12,
     marginBottom: 12,
     gap: 10,
   },
   errorText: {
-    color: '#DC2626',
+    color: colors.red,
     fontSize: 14,
     fontWeight: '500',
     flex: 1,
@@ -559,39 +473,39 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 28 : 16,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E5EA',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: colors.line,
+    backgroundColor: colors.white,
   },
   bottomInfo: {
     flex: 1,
   },
   bottomService: {
     fontSize: 13,
-    color: '#1C1C1E',
-    fontWeight: '500',
+    color: colors.ink,
+    fontWeight: '700',
   },
   bottomPrice: {
     fontSize: 12,
-    color: '#636366',
+    color: colors.inkSoft,
   },
   bottomDateTime: {
     fontSize: 11,
-    color: '#8E8E93',
+    color: colors.inkSoft,
     marginTop: 2,
   },
   nextButton: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.primary,
     paddingHorizontal: 22,
     paddingVertical: 11,
-    borderRadius: 10,
+    borderRadius: radius.sm,
     marginLeft: 12,
   },
   nextButtonDisabled: {
-    backgroundColor: '#C7C7CC',
+    backgroundColor: colors.line,
   },
   nextButtonText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

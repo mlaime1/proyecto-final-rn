@@ -97,6 +97,11 @@ export default function TurnosScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        <View style={styles.headerBlock}>
+          <Text style={styles.eyebrow}>Agenda</Text>
+          <Text style={styles.title}>Mis turnos</Text>
+        </View>
+
         <DayStrip days={dias} selected={selectedDay} onSelect={setSelectedDay} />
 
         <View style={styles.toolsRow}>
@@ -187,6 +192,22 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: {
     paddingBottom: 24,
+  },
+
+  headerBlock: {
+    marginBottom: 12,
+  },
+  eyebrow: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: colors.inkSoft,
+    marginBottom: 3,
+  },
+  title: {
+    fontSize: 23,
+    fontWeight: '800',
+    color: colors.ink,
+    letterSpacing: -0.5,
   },
 
   toolsRow: {

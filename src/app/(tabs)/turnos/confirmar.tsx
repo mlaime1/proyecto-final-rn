@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { createAppointment, type OrigenTurno } from '@/services/turnos.service';
+import TurnoHeader from '@/components/turnos/TurnoHeader';
+import { colors, radius } from '@/components/turnos/theme';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -78,7 +80,9 @@ export default function ConfirmarTurnoScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const telefonoLimpio = telefono.replace(/\D/g, '');
-  const telefonoValid = telefonoLimpio.length >= 8 && telefonoLimpio.length <= 15;
+  // Telefono es opcional: si se ingresa, debe tener 8-15 digitos; vacio es valido
+  const telefonoValid =
+    telefonoLimpio.length === 0 || (telefonoLimpio.length >= 8 && telefonoLimpio.length <= 15);
   const canReserve =
     paramsValid && nombre.trim().length >= 2 && apellido.trim().length >= 2 && telefonoValid;
 
@@ -96,7 +100,7 @@ export default function ConfirmarTurnoScreen() {
       await createAppointment({
         nombre: nombre.trim(),
         apellido: apellido.trim(),
-        telefono: parseInt(telefonoLimpio, 10),
+        telefono: telefonoLimpio ? parseInt(telefonoLimpio, 10) : null,
         servicio_id: serviceId,
         inicio: localISOTime,
         origen,
@@ -115,16 +119,11 @@ export default function ConfirmarTurnoScreen() {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" />
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={20} color="#007AFF" />
-            <Text style={styles.backText}>Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Turnos</Text>
-          <View style={{ width: 60 }} />
+        <View style={styles.headerWrap}>
+          <TurnoHeader title="Turnos" />
         </View>
         <View style={styles.emptyState}>
-          <Ionicons name="warning-outline" size={48} color="#DC2626" />
+          <Ionicons name="warning-outline" size={48} color={colors.red} />
           <Text style={styles.emptyStateText}>Los datos del turno no son válidos.</Text>
           <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
             <Text style={styles.secondaryButtonText}>Volver</Text>
@@ -143,13 +142,8 @@ export default function ConfirmarTurnoScreen() {
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={20} color="#007AFF" />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Turnos</Text>
-        <View style={{ width: 60 }} />
+      <View style={styles.headerWrap}>
+        <TurnoHeader title="Turnos" />
       </View>
 
       <ScrollView
@@ -165,22 +159,22 @@ export default function ConfirmarTurnoScreen() {
         {/* Booking summary card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
-            <Ionicons name="calendar-outline" size={16} color="#636366" />
+            <Ionicons name="calendar-outline" size={16} color={colors.primary} />
             <Text style={styles.summaryText}>{formattedDate}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Ionicons name="time-outline" size={16} color="#636366" />
+            <Ionicons name="time-outline" size={16} color={colors.primary} />
             <Text style={styles.summaryText}>{params.serviceName}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Ionicons name="cut-outline" size={16} color="#636366" />
+            <Ionicons name="cut-outline" size={16} color={colors.primary} />
             <Text style={styles.summaryText}>
               {params.time} - {endTime}
             </Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryRow}>
-            <Ionicons name="card-outline" size={16} color="#636366" />
+            <Ionicons name="card-outline" size={16} color={colors.primary} />
             <Text style={styles.summaryPrice}>${price.toLocaleString('es-AR')}</Text>
           </View>
         </View>
@@ -193,7 +187,7 @@ export default function ConfirmarTurnoScreen() {
           <TextInput
             style={styles.input}
             placeholder="Pablo"
-            placeholderTextColor="#C7C7CC"
+            placeholderTextColor={colors.inkSoft}
             value={nombre}
             onChangeText={setNombre}
             autoCapitalize="words"
@@ -206,7 +200,7 @@ export default function ConfirmarTurnoScreen() {
           <TextInput
             style={styles.input}
             placeholder="Perez"
-            placeholderTextColor="#C7C7CC"
+            placeholderTextColor={colors.inkSoft}
             value={apellido}
             onChangeText={setApellido}
             autoCapitalize="words"
@@ -215,11 +209,11 @@ export default function ConfirmarTurnoScreen() {
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Teléfono</Text>
+          <Text style={styles.label}>Teléfono (opcional)</Text>
           <TextInput
             style={styles.input}
             placeholder="Celular"
-            placeholderTextColor="#C7C7CC"
+            placeholderTextColor={colors.inkSoft}
             value={telefono}
             onChangeText={setTelefono}
             keyboardType="phone-pad"
@@ -239,7 +233,7 @@ export default function ConfirmarTurnoScreen() {
               <Ionicons
                 name="storefront-outline"
                 size={18}
-                color={origen === 'presencial' ? '#FFFFFF' : '#3C3C43'}
+                color={origen === 'presencial' ? '#FFFFFF' : colors.inkSoft}
               />
               <Text
                 style={[styles.origenText, origen === 'presencial' && styles.origenTextSelected]}
@@ -255,7 +249,7 @@ export default function ConfirmarTurnoScreen() {
               <Ionicons
                 name="logo-whatsapp"
                 size={18}
-                color={origen === 'whatsapp' ? '#FFFFFF' : '#3C3C43'}
+                color={origen === 'whatsapp' ? '#FFFFFF' : colors.inkSoft}
               />
               <Text style={[styles.origenText, origen === 'whatsapp' && styles.origenTextSelected]}>
                 WhatsApp
@@ -306,33 +300,12 @@ export default function ConfirmarTurnoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 54 : 24,
-    paddingBottom: 12,
+  headerWrap: {
     paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-    backgroundColor: '#FFFFFF',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    width: 60,
-  },
-  backText: {
-    color: '#007AFF',
-    fontSize: 17,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1C1C1E',
+    paddingTop: Platform.OS === 'ios' ? 54 : 24,
+    paddingBottom: 4,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -343,8 +316,8 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   summaryCard: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.md,
     padding: 16,
     marginBottom: 28,
     gap: 10,
@@ -356,22 +329,22 @@ const styles = StyleSheet.create({
   },
   summaryText: {
     fontSize: 15,
-    color: '#1C1C1E',
+    color: colors.ink,
   },
   summaryDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#C7C7CC',
+    backgroundColor: colors.primaryLine,
     marginVertical: 4,
   },
   summaryPrice: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.ink,
   },
   sectionTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.ink,
     marginBottom: 20,
   },
   fieldGroup: {
@@ -379,32 +352,32 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    color: '#636366',
+    color: colors.inkSoft,
     marginBottom: 6,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#C7C7CC',
-    borderRadius: 8,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1C1C1E',
-    backgroundColor: '#FFFFFF',
+    color: colors.ink,
+    backgroundColor: colors.white,
   },
   reserveButton: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 12,
   },
   reserveButtonDisabled: {
-    backgroundColor: '#C7C7CC',
+    backgroundColor: colors.line,
   },
   reserveButtonText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 17,
     fontWeight: '700',
   },
@@ -419,36 +392,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: '#C7C7CC',
-    borderRadius: 8,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
   },
   origenButtonSelected: {
-    backgroundColor: '#1C1C1E',
-    borderColor: '#1C1C1E',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   origenText: {
     fontSize: 15,
-    color: '#3C3C43',
+    color: colors.inkSoft,
     fontWeight: '600',
   },
   origenTextSelected: {
-    color: '#FFFFFF',
+    color: colors.white,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
     padding: 24,
     width: '80%',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.ink,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -460,27 +433,27 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.ink,
     marginBottom: 8,
     textAlign: 'center',
   },
   modalMessage: {
     fontSize: 15,
-    color: '#636366',
+    color: colors.inkSoft,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 22,
   },
   modalButton: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 10,
+    backgroundColor: colors.primary,
+    borderRadius: radius.sm,
     paddingVertical: 14,
     paddingHorizontal: 24,
     width: '100%',
     alignItems: 'center',
   },
   modalButtonText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -493,19 +466,21 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 16,
-    color: '#1C1C1E',
+    color: colors.ink,
     textAlign: 'center',
   },
   secondaryButton: {
     marginTop: 8,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: '#F2F2F7',
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
+    backgroundColor: colors.white,
   },
   secondaryButtonText: {
     fontSize: 15,
-    color: '#007AFF',
-    fontWeight: '600',
+    color: colors.primary,
+    fontWeight: '700',
   },
 });

@@ -137,7 +137,7 @@ export type Database = {
           id: number;
           nombre: string;
           notas: string | null;
-          telefono: number;
+          telefono: number | null;
           ultima_visita: string | null;
         };
         Insert: {
@@ -147,7 +147,7 @@ export type Database = {
           id?: number;
           nombre: string;
           notas?: string | null;
-          telefono: number;
+          telefono?: number | null;
           ultima_visita?: string | null;
         };
         Update: {
@@ -157,7 +157,7 @@ export type Database = {
           id?: number;
           nombre?: string;
           notas?: string | null;
-          telefono?: number;
+          telefono?: number | null;
           ultima_visita?: string | null;
         };
         Relationships: [

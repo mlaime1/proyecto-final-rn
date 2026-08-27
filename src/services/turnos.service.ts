@@ -188,7 +188,7 @@ export async function getServicios() {
 export type CreateAppointmentData = {
   nombre: string;
   apellido: string;
-  telefono: number;
+  telefono: number | null;
   servicio_id: number;
   inicio: string;
   origen: OrigenTurno;
@@ -232,21 +232,19 @@ export async function createAppointment(data: CreateAppointmentData) {
     throw new Error('El horario seleccionado ya no está disponible.');
   }
 
-  // 3. buscar o crear cliente (dentro de la barbería; upsert para evitar duplicados por race condition)
-  const { data: upsertedCliente, error: clienteError } = await supabase
+  // 3. crear cliente (siempre nuevo; el barbero carga los datos. Telefono es opcional,
+  // email queda null. Sin dedup por telefono -> insert directo, sin onConflict)
+  const { data: nuevoCliente, error: clienteError } = await supabase
     .from('Cliente')
-    .upsert(
-      {
-        barberia_id: barbero.barberia_id,
-        nombre: `${nombre} ${apellido}`.trim(),
-        telefono,
-      },
-      { onConflict: 'barberia_id,telefono' },
-    )
+    .insert({
+      barberia_id: barbero.barberia_id,
+      nombre: `${nombre} ${apellido}`.trim(),
+      telefono,
+    })
     .select('id')
     .single();
 
-  if (clienteError || !upsertedCliente) {
+  if (clienteError || !nuevoCliente) {
     throw new Error('No se pudo guardar los datos del cliente.');
   }
 
@@ -254,7 +252,7 @@ export async function createAppointment(data: CreateAppointmentData) {
   const { data: createdTurno, error } = await supabase
     .from('Turno')
     .insert({
-      cliente_id: upsertedCliente.id,
+      cliente_id: nuevoCliente.id,
       servicio_id,
       inicio,
       barbero_id: barbero.id,

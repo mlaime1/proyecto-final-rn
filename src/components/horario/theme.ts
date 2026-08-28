@@ -3,17 +3,20 @@
 // que el mockup web anterior: simple, blanco, un solo acento.
 
 export const colors = {
-  ink: '#17181c',
-  inkSoft: '#6b6f76',
-  line: '#e6e7eb',
-  lineSoft: '#f0f1f3',
-  white: '#ffffff',
-  bg: '#fafafb',
-  accent: '#f4b400',
-  accentSoft: '#fff3d6',
-  accentLine: '#e6a800',
-  danger: '#d64545',
-  dangerSoft: '#fbe9e9',
+  primary: '#4C1D95',
+  primarySoft: '#EDE9FE',
+  primaryLine: '#C4B5FD',
+  ink: '#0F172A',
+  inkSoft: '#64748B',
+  line: '#E2E8F0',
+  lineSoft: '#F1F5F9',
+  white: '#FFFFFF',
+  bg: '#F8FAFC',
+  accent: '#4C1D95',
+  accentSoft: '#EDE9FE',
+  accentLine: '#C4B5FD',
+  danger: '#B91C1C',
+  dangerSoft: '#FEE2E2',
 };
 
 export const radius = {

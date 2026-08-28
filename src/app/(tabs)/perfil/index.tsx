@@ -8,10 +8,10 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { BarberoConBarberia, getBarbero } from '@/services/barbero.service';
+import Screen from '@/components/ui/Screen';
 
 export default function PerfilScreen() {
   const { signOut, session } = useAuth();
@@ -52,7 +52,7 @@ export default function PerfilScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'right', 'left', 'bottom']}>
+    <Screen>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -70,12 +70,13 @@ export default function PerfilScreen() {
             </Text>
           </View>
           <Text style={styles.title}>Mi Perfil</Text>
-          <Text style={styles.subtitle}>Gestiona la informacion principal de tu negocio.</Text>
+          <Text style={styles.subtitle}>Información de tu cuenta y barbería</Text>
         </View>
 
         {loading && <ActivityIndicator color="#0EA5E9" />}
 
         <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Información</Text>
           {profileItems.map((item) => (
             <View key={item.label} style={styles.item}>
               <Text style={styles.label}>{item.label}</Text>
@@ -91,9 +92,11 @@ export default function PerfilScreen() {
             style={styles.menuRow}
             onPress={() => router.push('/(tabs)/perfil/horario')}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Editar horario habitual"
           >
             <View style={styles.menuRowLeft}>
-              <Ionicons name="time-outline" size={20} color="#0F172A" />
+              <Ionicons name="time-outline" size={20} color="#4C1D95" />
               <View>
                 <Text style={styles.menuTitle}>Horario habitual</Text>
                 <Text style={styles.menuSubtitle}>Días y franja horaria de trabajo</Text>
@@ -106,9 +109,11 @@ export default function PerfilScreen() {
             style={[styles.menuRow, styles.menuRowLast]}
             onPress={() => router.push('/(tabs)/perfil/excepciones')}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Administrar excepciones"
           >
             <View style={styles.menuRowLeft}>
-              <Ionicons name="calendar-outline" size={20} color="#0F172A" />
+              <Ionicons name="calendar-outline" size={20} color="#4C1D95" />
               <View>
                 <Text style={styles.menuTitle}>Excepciones</Text>
                 <Text style={styles.menuSubtitle}>Bloquear franjas o días puntuales</Text>
@@ -122,6 +127,8 @@ export default function PerfilScreen() {
           style={[styles.logoutButton, signingOut && styles.logoutButtonDisabled]}
           onPress={handleSignOut}
           disabled={signingOut}
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar sesión"
         >
           {signingOut ? (
             <ActivityIndicator color="#DC2626" />
@@ -133,68 +140,64 @@ export default function PerfilScreen() {
           )}
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
     paddingBottom: 24,
-    gap: 24,
+    gap: 20,
   },
   hero: {
     alignItems: 'center',
-    gap: 10,
+    marginVertical: 8,
   },
   avatar: {
     alignItems: 'center',
-    backgroundColor: '#0EA5E9',
-    borderRadius: 999,
-    height: 88,
+    backgroundColor: '#EDE9FE',
+    borderRadius: 40,
+    height: 80,
     justifyContent: 'center',
-    width: 88,
+    width: 80,
   },
   avatarText: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '800',
+    color: '#4C1D95',
+    fontSize: 26,
+    fontWeight: '700',
   },
   title: {
     color: '#0F172A',
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: 12,
   },
   subtitle: {
     color: '#64748B',
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 13,
+    marginTop: 6,
     textAlign: 'center',
   },
   card: {
     backgroundColor: '#FFFFFF',
     borderColor: '#E2E8F0',
-    borderRadius: 20,
+    borderRadius: 12,
     borderWidth: 1,
-    padding: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   item: {
     borderBottomColor: '#E2E8F0',
     borderBottomWidth: 1,
-    gap: 6,
-    paddingVertical: 14,
+    gap: 4,
+    paddingVertical: 12,
   },
   label: {
     color: '#64748B',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
     textTransform: 'uppercase',
   },
@@ -205,16 +208,17 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     color: '#64748B',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
     textTransform: 'uppercase',
-    marginBottom: 4,
+    letterSpacing: 0.4,
+    marginBottom: 2,
   },
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomColor: '#E2E8F0',
     borderBottomWidth: 1,
   },
@@ -224,16 +228,16 @@ const styles = StyleSheet.create({
   menuRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   menuTitle: {
     color: '#0F172A',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   menuSubtitle: {
     color: '#64748B',
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 2,
   },
   logoutButton: {
@@ -242,7 +246,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#DC2626',
-    borderRadius: 8,
+    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
     gap: 8,

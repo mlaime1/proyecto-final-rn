@@ -14,12 +14,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { getBarbero, updateHorarioHabitual } from '@/services/barbero.service';
 import { DEFAULT_APERTURA, DEFAULT_CIERRE, toHHMM } from '@/lib/availability';
 import { colors, radius, spacing, type } from '@/components/horario/theme';
+import Screen from '@/components/ui/Screen';
+import ProfileHeader from '@/components/ui/ProfileHeader';
 
 // Convención JS (Date.getDay()): 0=Dom … 6=Sáb. Se muestran de Lunes a Domingo.
 const DIAS = [
@@ -105,15 +104,8 @@ export default function HorarioHabitualScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'right', 'left']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={20} color="#007AFF" />
-          <Text style={styles.backText}>Perfil</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Horario</Text>
-        <View style={{ width: 60 }} />
-      </View>
+    <Screen>
+      <ProfileHeader title="Horario" />
 
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -189,7 +181,7 @@ export default function HorarioHabitualScreen() {
           </TouchableOpacity>
         </ScrollView>
       )}
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -225,22 +217,9 @@ function TimeStepper({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.white },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-  },
-  backButton: { flexDirection: 'row', alignItems: 'center', gap: 2, width: 60 },
-  backText: { color: '#007AFF', fontSize: 17 },
-  headerTitle: { fontSize: 17, fontWeight: '600', color: colors.ink },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  screen: { padding: spacing(5), paddingBottom: spacing(10) },
+  screen: { paddingTop: spacing(2), paddingBottom: spacing(10) },
   h1: { ...type.h1, color: colors.ink, marginBottom: spacing(2) },
   intro: { ...type.body, color: colors.inkSoft, lineHeight: 20, marginBottom: spacing(6) },
   label: { ...type.label, color: colors.inkSoft, marginBottom: spacing(3) },
@@ -256,9 +235,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  diaCircleActivo: { backgroundColor: colors.ink, borderColor: colors.ink },
+  diaCircleActivo: { backgroundColor: colors.primarySoft, borderColor: colors.primaryLine },
   diaText: { fontSize: 14, fontWeight: '700', color: colors.inkSoft },
-  diaTextActivo: { color: colors.white },
+  diaTextActivo: { color: colors.primary },
 
   rangoCard: {
     flexDirection: 'row',
@@ -300,7 +279,7 @@ const styles = StyleSheet.create({
 
   btnPrimary: {
     marginTop: spacing(6),
-    backgroundColor: colors.ink,
+    backgroundColor: colors.primary,
     borderRadius: radius.sm,
     paddingVertical: 14,
     alignItems: 'center',

@@ -134,6 +134,20 @@ npm run lint      # Ejecutar ESLint
 npm run format    # Formatear código con Prettier
 ```
 
+## 🚢 Deploy
+
+La app usa EAS Build para generar las versiones Android/iOS y mantiene la configuración en `app.config.ts`.
+
+1. Copia `.env.example` a `.env` y completa las variables de Supabase. Las variables `EXPO_PUBLIC_*` se incorporan al bundle durante el build.
+2. Ejecuta `npx eas login` y `npx eas build:configure` si es la primera vez que usas EAS en este proyecto.
+3. Crea un build de prueba con `npm run build:preview`.
+4. Genera el build de producción con `npm run build:production`.
+5. Envía el build a las tiendas con `npm run submit:production`.
+
+Antes del primer build de producción, verifica en EAS los identificadores `com.turnosapp.mobile`, el propietario del proyecto y las credenciales de firma. La clave publishable/anon de Supabase no es un secreto de servidor, pero debe estar rotada y configurada en el entorno de build correcto.
+
+Para publicar la versión web, usa `npm run build:web` y despliega la carpeta `dist/` en el proveedor elegido.
+
 ---
 
 **¡Listo para comenzar tu proyecto!** 🚀

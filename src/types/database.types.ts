@@ -242,39 +242,39 @@ export type Database = {
       };
       Turno: {
         Row: {
-          barbero_id: number | null;
-          cliente_id: number | null;
+          barbero_id: number;
+          cliente_id: number;
           created_at: string;
           duracion_minutos: number;
           estado: Database['public']['Enums']['estado_turno'] | null;
           id: number;
-          inicio: string | null;
+          inicio: string;
           origen: string;
-          servicio_id: number | null;
+          servicio_id: number;
           update_at: string | null;
         };
         Insert: {
-          barbero_id?: number | null;
-          cliente_id?: number | null;
+          barbero_id: number;
+          cliente_id: number;
           created_at?: string;
           duracion_minutos: number;
           estado?: Database['public']['Enums']['estado_turno'] | null;
           id?: number;
-          inicio?: string | null;
+          inicio: string;
           origen: string;
-          servicio_id?: number | null;
+          servicio_id: number;
           update_at?: string | null;
         };
         Update: {
-          barbero_id?: number | null;
-          cliente_id?: number | null;
+          barbero_id?: number;
+          cliente_id?: number;
           created_at?: string;
           duracion_minutos?: number;
           estado?: Database['public']['Enums']['estado_turno'] | null;
           id?: number;
-          inicio?: string | null;
+          inicio?: string;
           origen?: string;
-          servicio_id?: number | null;
+          servicio_id?: number;
           update_at?: string | null;
         };
         Relationships: [

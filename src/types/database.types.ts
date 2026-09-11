@@ -242,39 +242,39 @@ export type Database = {
       };
       Turno: {
         Row: {
-          barbero_id: number | null;
-          cliente_id: number | null;
+          barbero_id: number;
+          cliente_id: number;
           created_at: string;
           duracion_minutos: number;
           estado: Database['public']['Enums']['estado_turno'] | null;
           id: number;
-          inicio: string | null;
+          inicio: string;
           origen: string;
-          servicio_id: number | null;
+          servicio_id: number;
           update_at: string | null;
         };
         Insert: {
-          barbero_id?: number | null;
-          cliente_id?: number | null;
+          barbero_id: number;
+          cliente_id: number;
           created_at?: string;
           duracion_minutos: number;
           estado?: Database['public']['Enums']['estado_turno'] | null;
           id?: number;
-          inicio?: string | null;
+          inicio: string;
           origen: string;
-          servicio_id?: number | null;
+          servicio_id: number;
           update_at?: string | null;
         };
         Update: {
-          barbero_id?: number | null;
-          cliente_id?: number | null;
+          barbero_id?: number;
+          cliente_id?: number;
           created_at?: string;
           duracion_minutos?: number;
           estado?: Database['public']['Enums']['estado_turno'] | null;
           id?: number;
-          inicio?: string | null;
+          inicio?: string;
           origen?: string;
-          servicio_id?: number | null;
+          servicio_id?: number;
           update_at?: string | null;
         };
         Relationships: [
@@ -306,7 +306,28 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      crear_turno: {
+        Args: {
+          p_apellido: string;
+          p_inicio: string;
+          p_nombre: string;
+          p_origen: string;
+          p_servicio_id: number;
+          p_telefono?: number | null;
+        };
+        Returns: {
+          barbero_id: number;
+          cliente_id: number;
+          created_at: string;
+          duracion_minutos: number;
+          estado: Database['public']['Enums']['estado_turno'] | null;
+          id: number;
+          inicio: string;
+          origen: string;
+          servicio_id: number;
+          update_at: string | null;
+        };
+      };
     };
     Enums: {
       estado_turno: 'pendiente' | 'confirmado' | 'completado' | 'cancelado' | 'ausente';

@@ -62,18 +62,6 @@ export function useAuth() {
     }
   };
 
-  const signUp = async (creds: AuthCredentials): Promise<AuthResult> => {
-    setError(null);
-    try {
-      await authService.signUp(creds);
-      return { error: null };
-    } catch (e: any) {
-      const message = mapAuthError(e.message ?? 'Error al registrarse');
-      setError(message);
-      return { error: message };
-    }
-  };
-
   const signOut = async (): Promise<AuthResult> => {
     try {
       log('[useAuth] signOut called');
@@ -88,7 +76,7 @@ export function useAuth() {
     }
   };
 
-  return { session, loading, error, signIn, signUp, signOut };
+  return { session, loading, error, signIn, signOut };
 }
 
 function mapAuthError(message: string): string {
@@ -98,9 +86,6 @@ function mapAuthError(message: string): string {
   }
   if (lower.includes('email not confirmed')) {
     return 'Tu email aún no fue confirmado.';
-  }
-  if (lower.includes('user already registered')) {
-    return 'Ese email ya está registrado.';
   }
   if (lower.includes('rate limit')) {
     return 'Demasiados intentos. Probá más tarde.';

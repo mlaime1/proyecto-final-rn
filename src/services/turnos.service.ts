@@ -250,11 +250,36 @@ export type CreateAppointmentData = {
   origen: OrigenTurno;
 };
 
+/**
+ * Traduce el error de la RPC `crear_turno` (SQLSTATE o token de la función) a un
+ * mensaje para la UI. La función es la única autoridad de la reserva.
+ */
+function mapCrearTurnoError(error: { code?: string; message?: string } | null): string {
+  const message = error?.message ?? '';
+
+  if (error?.code === '23P01' || message.includes('turno_sin_solape')) {
+    return 'El horario seleccionado ya no está disponible.';
+  }
+  if (message.includes('SERVICIO_INVALIDO')) {
+    return 'El servicio seleccionado no es válido.';
+  }
+  if (message.includes('CUENTA_NO_VINCULADA')) {
+    return 'Tu cuenta no está vinculada a ninguna barbería. Contactá al administrador.';
+  }
+  if (message.includes('DATOS_CLIENTE_INVALIDOS')) {
+    return 'Revisá el nombre y el apellido del cliente.';
+  }
+  if (message.includes('SESION_INVALIDA')) {
+    return 'Tu sesión expiró. Iniciá sesión nuevamente.';
+  }
+  return 'No se pudo crear el turno.';
+}
+
 export async function createAppointment(data: CreateAppointmentData) {
   const { nombre, apellido, telefono, servicio_id, inicio, origen } = data;
   const barbero = await getCurrentBarbero();
 
-  // 1. obtener duración del servicio (para snapshot y chequeo de solape)
+  // 1. duración del servicio: solo para la pre-verificación de UX.
   const { data: servicio, error: servicioError } = await supabase
     .from('Servicio')
     .select('duracion')
@@ -274,52 +299,26 @@ export async function createAppointment(data: CreateAppointmentData) {
     throw new Error('No se pueden crear turnos en el pasado.');
   }
 
-  // 2. pre-verificación de solape (solo UX; la autoridad es la constraint de la BD)
+  // 2. pre-verificación de solape (solo UX; la BD es la autoridad).
   const overlapping = await findOverlaps(barbero.id, inicioDate, finDate);
   if (overlapping.length > 0) {
     throw new Error('El horario seleccionado ya no está disponible.');
   }
 
-  // 3. crear cliente (siempre nuevo; el barbero carga los datos. Telefono es opcional,
-  // email queda null. Sin dedup por telefono -> insert directo, sin onConflict)
-  const { data: nuevoCliente, error: clienteError } = await supabase
-    .from('Cliente')
-    .insert({
-      barberia_id: barbero.barberia_id,
-      nombre: `${nombre} ${apellido}`.trim(),
-      telefono,
-    })
-    .select('id')
-    .single();
+  // 3. alta atómica: cliente + turno en una sola transacción (RPC `crear_turno`).
+  //    Si el turno falla (solape, relación inválida), Postgres revierte también
+  //    la creación del cliente: nunca quedan clientes huérfanos.
+  const { data: createdTurno, error } = await supabase.rpc('crear_turno', {
+    p_servicio_id: servicio_id,
+    p_inicio: inicio,
+    p_origen: origen,
+    p_nombre: nombre,
+    p_apellido: apellido,
+    p_telefono: telefono,
+  });
 
-  if (clienteError || !nuevoCliente) {
-    throw new Error('No se pudo guardar los datos del cliente.');
-  }
-
-  // 4. crear turno (con snapshot de duración y origen)
-  const { data: createdTurno, error } = await supabase
-    .from('Turno')
-    .insert({
-      cliente_id: nuevoCliente.id,
-      servicio_id,
-      inicio,
-      barbero_id: barbero.id,
-      estado: 'confirmado',
-      origen,
-      duracion_minutos: duracionMinutos,
-    })
-    .select('*')
-    .single();
-
-  if (error) {
-    // 23P01 = exclusion_violation (constraint `turno_sin_solape`).
-    if (error.code === '23P01') {
-      throw new Error('El horario seleccionado ya no está disponible.');
-    }
-    if (error.code === '23505' || error.message?.includes('unique')) {
-      throw new Error('El horario seleccionado ya fue reservado.');
-    }
-    throw new Error('No se pudo crear el turno.');
+  if (error || !createdTurno) {
+    throw new Error(mapCrearTurnoError(error));
   }
 
   return createdTurno as Turno;

@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   StatusBar,
@@ -19,6 +18,7 @@ import { computeOccupiedSlots, generateTimeSlots, isDiaHabil } from '@/lib/avail
 import DayStrip, { buildDayRange } from '@/components/turnos/DayStrip';
 import TurnoHeader from '@/components/turnos/TurnoHeader';
 import { colors, radius } from '@/components/turnos/theme';
+import { showAlert } from '@/lib/alert';
 
 const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = [
@@ -83,11 +83,6 @@ export default function NuevoTurnoScreen() {
         const message =
           err instanceof Error ? err.message : 'Error al cargar los horarios ocupados';
         setOccupiedError(message);
-        if (message === 'Usuario no autenticado') {
-          Alert.alert('Sesión expirada', 'Tu sesión expiró. Por favor iniciá sesión nuevamente.', [
-            { text: 'Aceptar', onPress: () => router.replace('/login') },
-          ]);
-        }
       } finally {
         setLoadingOccupied(false);
       }
@@ -120,7 +115,7 @@ export default function NuevoTurnoScreen() {
       const data = await getServicios();
       setServices(data);
     } catch {
-      Alert.alert('Error', 'No se pudieron cargar los servicios.');
+      showAlert('Error', 'No se pudieron cargar los servicios.');
     } finally {
       setLoadingServices(false);
     }
@@ -136,7 +131,7 @@ export default function NuevoTurnoScreen() {
     selectedDateTime.setHours(h, m, 0, 0);
 
     if (selectedDateTime < new Date()) {
-      Alert.alert('Horario no válido', 'No podés reservar un turno en el pasado.');
+      showAlert('Horario no válido', 'No podés reservar un turno en el pasado.');
       return;
     }
 

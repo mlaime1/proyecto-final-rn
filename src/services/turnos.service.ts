@@ -205,7 +205,7 @@ export async function getTurnoById(id: number) {
     .select(
       `
       *,
-      Cliente ( nombre ),
+      Cliente ( nombre, telefono ),
       Servicio ( nombre, precio, duracion )
     `,
     )
@@ -217,7 +217,7 @@ export async function getTurnoById(id: number) {
   if (!data) throw new Error('Turno no encontrado.');
 
   return data as Turno & {
-    Cliente: { nombre: string } | null;
+    Cliente: { nombre: string; telefono: number | null } | null;
     Servicio: { nombre: string | null; precio: number | null; duracion: number | null } | null;
   };
 }

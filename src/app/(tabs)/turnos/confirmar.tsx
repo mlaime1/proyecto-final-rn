@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { createAppointment, type OrigenTurno } from '@/services/turnos.service';
 import TurnoHeader from '@/components/turnos/TurnoHeader';
 import { colors, radius } from '@/components/turnos/theme';
+import { showAlert } from '@/lib/alert';
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -109,7 +109,7 @@ export default function ConfirmarTurnoScreen() {
       setShowSuccessModal(true);
     } catch (error: any) {
       const friendlyMessage = error?.message ?? 'No se pudo confirmar el turno. Intentá de nuevo.';
-      Alert.alert('Error', friendlyMessage);
+      showAlert('Error', friendlyMessage);
     } finally {
       setLoading(false);
     }

@@ -7,7 +7,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +18,7 @@ import { DEFAULT_APERTURA, DEFAULT_CIERRE, toHHMM } from '@/lib/availability';
 import { colors, radius, spacing, type } from '@/components/horario/theme';
 import Screen from '@/components/ui/Screen';
 import ProfileHeader from '@/components/ui/ProfileHeader';
+import { showAlert } from '@/lib/alert';
 
 // Convención JS (Date.getDay()): 0=Dom … 6=Sáb. Se muestran de Lunes a Domingo.
 const DIAS = [
@@ -60,7 +60,7 @@ export default function HorarioHabitualScreen() {
         if (barbero.hora_cierre) setHoraCierre(toHHMM(barbero.hora_cierre));
       })
       .catch(() => {
-        Alert.alert('Error', 'No se pudo cargar tu horario actual.');
+        showAlert('Error', 'No se pudo cargar tu horario actual.');
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -97,7 +97,7 @@ export default function HorarioHabitualScreen() {
       setGuardado(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'No se pudo guardar tu horario.';
-      Alert.alert('Error', message);
+      showAlert('Error', message);
     } finally {
       setSaving(false);
     }

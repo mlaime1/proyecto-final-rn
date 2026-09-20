@@ -1,7 +1,7 @@
 import Screen from '@/components/ui/Screen';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getBarbero } from '@/services/barbero.service';
 import { getTurnos, TurnoUI } from '@/services/turnos.service';
@@ -217,11 +217,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('Barbero');
 
-  useEffect(() => {
-    loadHomeData();
-  }, []);
-
-  const loadHomeData = async () => {
+  const loadHomeData = useCallback(async () => {
     try {
       const barbero = await getBarbero();
       const turnosData = await getTurnos();
@@ -236,7 +232,13 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadHomeData();
+    }, [loadHomeData]),
+  );
 
   const proximosTurnos = useMemo(() => selectProximosTurnos(turnos), [turnos]);
   const ultimoTurno = useMemo(() => selectUltimoTurno(turnos), [turnos]);

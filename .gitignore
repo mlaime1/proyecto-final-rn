@@ -46,3 +46,8 @@ yarn-error.*
 supabase/.temp/
 D:\ComIT\proyecto-final-rn\docs
 docs
+# Local AI runtime state
+.atl/
+.agents/skills*
+*.agents/skills*
+.claude/skills*

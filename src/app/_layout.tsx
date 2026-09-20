@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import AlertHost from '@/components/ui/AlertHost';
 
 export default function RootLayout() {
   const { session, loading } = useAuth();
@@ -35,6 +36,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="login" />
       </Stack>
+      <AlertHost />
     </ErrorBoundary>
   );
 }

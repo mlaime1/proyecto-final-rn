@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { BarberoConBarberia, getBarbero } from '@/services/barbero.service';

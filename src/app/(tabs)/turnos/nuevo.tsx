@@ -1,9 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   ScrollView,
   StatusBar,
@@ -19,6 +18,7 @@ import { computeOccupiedSlots, generateTimeSlots, isDiaHabil } from '@/lib/avail
 import DayStrip, { buildDayRange } from '@/components/turnos/DayStrip';
 import TurnoHeader from '@/components/turnos/TurnoHeader';
 import { colors, radius } from '@/components/turnos/theme';
+import { showAlert } from '@/lib/alert';
 
 const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = [
@@ -48,22 +48,70 @@ export default function NuevoTurnoScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
-  const [occupiedSlots, setOccupiedSlots] = useState<string[]>([]);
+  const [occupiedSlots, setOccupiedSlots] = useState<Set<string>>(new Set());
   const [loadingOccupied, setLoadingOccupied] = useState(false);
   const [occupiedError, setOccupiedError] = useState<string | null>(null);
 
   // Slots generados según apertura/cierre del barbero
-  const timeSlots = generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre);
+  const timeSlots = useMemo(
+    () => generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre),
+    [barbero?.hora_apertura, barbero?.hora_cierre],
+  );
 
   // Solo días futuros: hoy + 14. Los no hábiles se deshabilitan en el strip.
   const diasFuturos = useMemo(() => buildDayRange({ back: 0, forward: 14 }), []);
 
   useEffect(() => {
-    loadBarbero();
+    let mounted = true;
+
+    async function init() {
+      try {
+        const data = await getBarbero();
+        if (!mounted) return;
+        setBarbero(data);
+
+        // Si el día seleccionado no es hábil para el barbero, saltar al primero hábil
+        if (data && !isDiaHabil(selectedDate, data.dias_habiles)) {
+          const next = Array.from({ length: 15 }, (_, i) => {
+            const d = new Date();
+            d.setDate(new Date().getDate() + i);
+            return d;
+          }).find((d) => isDiaHabil(d, data.dias_habiles));
+          if (next && mounted) setSelectedDate(next);
+        }
+      } catch {
+        // sin config del barbero, se usan los defaults de availability.ts
+      }
+    }
+
+    async function loadServices() {
+      try {
+        setLoadingServices(true);
+        const data = await getServicios();
+        if (!mounted) return;
+        setServices(data);
+      } catch {
+        showAlert('Error', 'No se pudieron cargar los servicios.');
+      } finally {
+        if (mounted) setLoadingServices(false);
+      }
+    }
+
+    init();
     loadServices();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
+    // El flag `mounted` es por ejecución del efecto: cuando `selectedDate` cambia,
+    // React corre el cleanup anterior (mounted = false) antes de arrancar el nuevo,
+    // así que una respuesta vieja se descarta sola. Por eso alcanza con `mounted` y
+    // no hace falta además un token por fecha.
+    let mounted = true;
+
     async function loadOccupied() {
       setLoadingOccupied(true);
       setOccupiedError(null);
@@ -72,59 +120,30 @@ export default function NuevoTurnoScreen() {
           getTurnosPorDia(selectedDate),
           getBloqueosDelDia(selectedDate),
         ]);
-        const slots = computeOccupiedSlots(turnos, bloqueos);
+        if (!mounted) return;
 
+        const slots = computeOccupiedSlots(turnos, bloqueos);
         setOccupiedSlots(slots);
+
         // Deseleccionar si el turno seleccionado quedó ocupado
-        if (selectedTime && slots.includes(selectedTime)) {
+        if (selectedTime && slots.has(selectedTime)) {
           setSelectedTime(null);
         }
       } catch (err) {
+        if (!mounted) return;
         const message =
           err instanceof Error ? err.message : 'Error al cargar los horarios ocupados';
         setOccupiedError(message);
-        if (message === 'Usuario no autenticado') {
-          Alert.alert('Sesión expirada', 'Tu sesión expiró. Por favor iniciá sesión nuevamente.', [
-            { text: 'Aceptar', onPress: () => router.replace('/login') },
-          ]);
-        }
       } finally {
-        setLoadingOccupied(false);
+        if (mounted) setLoadingOccupied(false);
       }
     }
     loadOccupied();
+
+    return () => {
+      mounted = false;
+    };
   }, [selectedDate]);
-
-  const loadBarbero = async () => {
-    try {
-      const data = await getBarbero();
-      setBarbero(data);
-
-      // Si el día seleccionado no es hábil para el barbero, saltar al primero hábil
-      if (data && !isDiaHabil(selectedDate, data.dias_habiles)) {
-        const next = Array.from({ length: 15 }, (_, i) => {
-          const d = new Date();
-          d.setDate(new Date().getDate() + i);
-          return d;
-        }).find((d) => isDiaHabil(d, data.dias_habiles));
-        if (next) setSelectedDate(next);
-      }
-    } catch {
-      // sin config del barbero, se usan los defaults de availability.ts
-    }
-  };
-
-  const loadServices = async () => {
-    try {
-      setLoadingServices(true);
-      const data = await getServicios();
-      setServices(data);
-    } catch {
-      Alert.alert('Error', 'No se pudieron cargar los servicios.');
-    } finally {
-      setLoadingServices(false);
-    }
-  };
 
   const canContinue = selectedService && selectedTime;
 
@@ -136,7 +155,7 @@ export default function NuevoTurnoScreen() {
     selectedDateTime.setHours(h, m, 0, 0);
 
     if (selectedDateTime < new Date()) {
-      Alert.alert('Horario no válido', 'No podés reservar un turno en el pasado.');
+      showAlert('Horario no válido', 'No podés reservar un turno en el pasado.');
       return;
     }
 
@@ -250,7 +269,7 @@ export default function NuevoTurnoScreen() {
           ) : (
             <View style={styles.timeGrid}>
               {timeSlots.map((time) => {
-                const isOccupied = occupiedSlots.includes(time);
+                const isOccupied = occupiedSlots.has(time);
 
                 const now = new Date();
                 const isToday =

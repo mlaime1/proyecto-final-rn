@@ -11,7 +11,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -41,6 +40,7 @@ import TimeSlotGrid from '@/components/horario/TimeSlotGrid';
 import { colors, radius, spacing, type } from '@/components/horario/theme';
 import Screen from '@/components/ui/Screen';
 import ProfileHeader from '@/components/ui/ProfileHeader';
+import { showAlert } from '@/lib/alert';
 
 type BloqueoUI = {
   id: number;
@@ -125,7 +125,7 @@ export default function ExcepcionesScreen() {
         if (mounted) setBarbero(data);
       })
       .catch(() => {
-        Alert.alert('Error', 'No se pudo cargar tu horario habitual.');
+        showAlert('Error', 'No se pudo cargar tu horario habitual.');
       })
       .finally(() => {
         if (mounted) setLoadingBarbero(false);
@@ -141,7 +141,7 @@ export default function ExcepcionesScreen() {
       const data = await getBloqueosDelDia(parseFechaLocal(fecha));
       setExistentes(data.map(toBloqueoUI));
     } catch {
-      Alert.alert('Error', 'No se pudieron cargar los bloqueos del día.');
+      showAlert('Error', 'No se pudieron cargar los bloqueos del día.');
       setExistentes([]);
     } finally {
       setLoadingBloqueos(false);
@@ -156,7 +156,10 @@ export default function ExcepcionesScreen() {
     : false;
 
   const bloqueoDiaCompletoExistente = existentes.find((b) => b.horaInicio === null);
-  const parcialesExistentes = existentes.filter((b) => b.horaInicio !== null);
+  const parcialesExistentes = useMemo(
+    () => existentes.filter((b) => b.horaInicio !== null),
+    [existentes],
+  );
   const slotsExistentesSet = useMemo(
     () => slotsDeRangos(parcialesExistentes),
     [parcialesExistentes],
@@ -204,7 +207,7 @@ export default function ExcepcionesScreen() {
       await cargarBloqueos(fechaSeleccionada);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'No se pudo guardar el bloqueo.';
-      Alert.alert('Error', message);
+      showAlert('Error', message);
     } finally {
       setMutando(false);
     }
@@ -218,7 +221,7 @@ export default function ExcepcionesScreen() {
       await cargarBloqueos(fechaSeleccionada);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'No se pudo eliminar el bloqueo.';
-      Alert.alert('Error', message);
+      showAlert('Error', message);
     } finally {
       setMutando(false);
     }

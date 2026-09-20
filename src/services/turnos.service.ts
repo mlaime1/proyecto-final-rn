@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { getBarbero } from '@/services/barbero.service';
+import { ServiceError } from '@/services/error';
+import { useAppStore } from '@/store/app.store';
 import { Database } from '@/types/database.types';
 
 /* =========================
@@ -25,7 +27,7 @@ export type TurnoUI = {
   estado: string;
 };
 
-type TurnoConRelaciones = {
+type TurnoRow = {
   id: number;
   inicio: string;
   cliente_id: number;
@@ -61,14 +63,17 @@ export type OrigenTurno = 'presencial' | 'whatsapp';
 async function getCurrentBarbero() {
   const barbero = await getBarbero();
   if (!barbero) {
-    throw new Error('Tu cuenta no está vinculada a ninguna barbería. Contactá al administrador.');
+    throw new ServiceError(
+      'Tu cuenta no está vinculada a ninguna barbería. Contactá al administrador.',
+      { code: 'CUENTA_NO_VINCULADA' },
+    );
   }
   return barbero;
 }
 
 function validateEstado(estado: unknown): EstadoTurno {
   if (typeof estado !== 'string' || !VALID_ESTADOS.includes(estado as EstadoTurno)) {
-    throw new Error('Estado de turno no válido.');
+    throw new ServiceError('Estado de turno no válido.', { code: 'ESTADO_INVALIDO' });
   }
   return estado as EstadoTurno;
 }
@@ -123,7 +128,12 @@ async function findOverlaps(
     .gte('inicio', desde)
     .lt('inicio', hasta);
 
-  if (error) throw new Error('No se pudo verificar la disponibilidad del horario.');
+  if (error) {
+    throw new ServiceError('No se pudo verificar la disponibilidad del horario.', {
+      code: error.code,
+      cause: error,
+    });
+  }
 
   const inicioMs = inicio.getTime();
   const finMs = fin.getTime();
@@ -139,10 +149,14 @@ async function findOverlaps(
 /* =========================
    GET TURNOS
 ========================= */
-export async function getTurnos(): Promise<TurnoUI[]> {
+export async function getTurnos(opts?: {
+  desde?: Date;
+  hasta?: Date;
+  limit?: number;
+}): Promise<TurnoUI[]> {
   const barbero = await getCurrentBarbero();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('Turno')
     .select(
       `
@@ -158,9 +172,30 @@ export async function getTurnos(): Promise<TurnoUI[]> {
     .eq('barbero_id', barbero.id)
     .order('inicio', { ascending: true });
 
-  if (error) throw new Error('No se pudieron cargar los turnos.');
+  if (opts?.desde) {
+    const { startString } = normalizeDateBounds(opts.desde);
+    query = query.gte('inicio', startString);
+  }
 
-  return ((data ?? []) as unknown as TurnoConRelaciones[]).map((t) => ({
+  if (opts?.hasta) {
+    const { endString } = normalizeDateBounds(opts.hasta);
+    query = query.lte('inicio', endString);
+  }
+
+  if (opts?.limit) {
+    query = query.limit(opts.limit);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new ServiceError('No se pudieron cargar los turnos.', {
+      code: error.code,
+      cause: error,
+    });
+  }
+
+  return ((data ?? []) as unknown as TurnoRow[]).map((t) => ({
     id: t.id,
     inicio: t.inicio,
     cliente_id: t.cliente_id,
@@ -189,7 +224,12 @@ export async function getTurnosPorDia(date: Date): Promise<TurnoPorDia[]> {
     .gte('inicio', startString)
     .lte('inicio', endString);
 
-  if (error) throw new Error('No se pudieron cargar los horarios ocupados.');
+  if (error) {
+    throw new ServiceError('No se pudieron cargar los horarios ocupados.', {
+      code: error.code,
+      cause: error,
+    });
+  }
 
   return (data ?? []) as TurnoPorDia[];
 }
@@ -204,8 +244,13 @@ export async function getTurnoById(id: number) {
     .from('Turno')
     .select(
       `
-      *,
-      Cliente ( nombre ),
+      id,
+      inicio,
+      cliente_id,
+      servicio_id,
+      estado,
+      duracion_minutos,
+      Cliente ( nombre, telefono ),
       Servicio ( nombre, precio, duracion )
     `,
     )
@@ -213,19 +258,33 @@ export async function getTurnoById(id: number) {
     .eq('barbero_id', barbero.id)
     .maybeSingle();
 
-  if (error) throw new Error('No se pudo cargar el turno.');
-  if (!data) throw new Error('Turno no encontrado.');
+  if (error) {
+    throw new ServiceError('No se pudo cargar el turno.', {
+      code: error.code,
+      cause: error,
+    });
+  }
+  if (!data) {
+    throw new ServiceError('Turno no encontrado.', { code: 'TURNO_NO_ENCONTRADO' });
+  }
 
-  return data as Turno & {
-    Cliente: { nombre: string } | null;
-    Servicio: { nombre: string | null; precio: number | null; duracion: number | null } | null;
-  };
+  return {
+    ...data,
+    Cliente: Array.isArray(data.Cliente) ? (data.Cliente[0] ?? null) : data.Cliente,
+    Servicio: Array.isArray(data.Servicio) ? (data.Servicio[0] ?? null) : data.Servicio,
+  } as TurnoConRelaciones;
 }
 
 /* =========================
    SERVICIOS (catálogo propio del barbero)
 ========================= */
-export async function getServicios() {
+export async function getServicios(): Promise<Servicio[]> {
+  const { servicios: cached, setServicios } = useAppStore.getState();
+
+  if (cached) {
+    return cached;
+  }
+
   const barbero = await getCurrentBarbero();
 
   const { data, error } = await supabase
@@ -234,8 +293,16 @@ export async function getServicios() {
     .eq('barbero_id', barbero.id)
     .order('id', { ascending: true });
 
-  if (error) throw new Error('No se pudieron cargar los servicios.');
-  return data as Servicio[];
+  if (error) {
+    throw new ServiceError('No se pudieron cargar los servicios.', {
+      code: error.code,
+      cause: error,
+    });
+  }
+
+  const result = (data ?? []) as Servicio[];
+  setServicios(result);
+  return result;
 }
 
 /* =========================
@@ -287,8 +354,16 @@ export async function createAppointment(data: CreateAppointmentData) {
     .eq('barbero_id', barbero.id)
     .maybeSingle();
 
-  if (servicioError || !servicio) {
-    throw new Error('El servicio seleccionado no es válido.');
+  if (servicioError) {
+    throw new ServiceError('El servicio seleccionado no es válido.', {
+      code: servicioError.code,
+      cause: servicioError,
+    });
+  }
+  if (!servicio) {
+    throw new ServiceError('El servicio seleccionado no es válido.', {
+      code: 'SERVICIO_NO_ENCONTRADO',
+    });
   }
 
   const duracionMinutos = servicio.duracion ?? 30;
@@ -296,13 +371,17 @@ export async function createAppointment(data: CreateAppointmentData) {
   const finDate = new Date(inicioDate.getTime() + duracionMinutos * 60000);
 
   if (inicioDate < new Date()) {
-    throw new Error('No se pueden crear turnos en el pasado.');
+    throw new ServiceError('No se pueden crear turnos en el pasado.', {
+      code: 'HORARIO_EN_EL_PASADO',
+    });
   }
 
   // 2. pre-verificación de solape (solo UX; la BD es la autoridad).
   const overlapping = await findOverlaps(barbero.id, inicioDate, finDate);
   if (overlapping.length > 0) {
-    throw new Error('El horario seleccionado ya no está disponible.');
+    throw new ServiceError('El horario seleccionado ya no está disponible.', {
+      code: 'HORARIO_OCUPADO',
+    });
   }
 
   // 3. alta atómica: cliente + turno en una sola transacción (RPC `crear_turno`).
@@ -318,7 +397,10 @@ export async function createAppointment(data: CreateAppointmentData) {
   });
 
   if (error || !createdTurno) {
-    throw new Error(mapCrearTurnoError(error));
+    throw new ServiceError(mapCrearTurnoError(error), {
+      code: error?.code,
+      cause: error,
+    });
   }
 
   return createdTurno as Turno;
@@ -327,27 +409,58 @@ export async function createAppointment(data: CreateAppointmentData) {
 /* =========================
    UPDATE
 ========================= */
+export type TurnoConRelaciones = Turno & {
+  Cliente: { nombre: string; telefono: number | null } | null;
+  Servicio: { nombre: string | null; precio: number | null; duracion: number | null } | null;
+};
+
 export async function updateTurno(
   id: number,
   changes: Pick<TurnoUpdate, 'servicio_id' | 'inicio' | 'estado'>,
-) {
+): Promise<TurnoConRelaciones> {
   const barbero = await getCurrentBarbero();
 
   const payload: Partial<TurnoUpdate> = {};
   if (changes.inicio !== undefined) payload.inicio = changes.inicio;
   if (changes.estado !== undefined) payload.estado = validateEstado(changes.estado);
 
-  // Si cambia el servicio, hay que refrescar el snapshot de duración
-  if (changes.servicio_id !== undefined) {
-    const { data: servicio, error: servicioError } = await supabase
-      .from('Servicio')
-      .select('duracion')
-      .eq('id', changes.servicio_id)
-      .eq('barbero_id', barbero.id)
-      .maybeSingle();
+  // Si cambia el servicio, hay que refrescar el snapshot de duración.
+  // Las lecturas del servicio y del turno actual son independientes, así que
+  // se ejecutan en paralelo.
+  const servicioPromise =
+    changes.servicio_id !== undefined
+      ? supabase
+          .from('Servicio')
+          .select('duracion')
+          .eq('id', changes.servicio_id)
+          .eq('barbero_id', barbero.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null } as {
+          data: { duracion: number | null } | null;
+          error: null;
+        });
 
-    if (servicioError || !servicio) {
-      throw new Error('El servicio seleccionado no es válido.');
+  const actualPromise = supabase
+    .from('Turno')
+    .select('inicio, duracion_minutos, estado')
+    .eq('id', id)
+    .eq('barbero_id', barbero.id)
+    .maybeSingle();
+
+  const [{ data: servicio, error: servicioError }, { data: actual, error: actualError }] =
+    await Promise.all([servicioPromise, actualPromise]);
+
+  if (changes.servicio_id !== undefined) {
+    if (servicioError) {
+      throw new ServiceError('El servicio seleccionado no es válido.', {
+        code: servicioError.code,
+        cause: servicioError,
+      });
+    }
+    if (!servicio) {
+      throw new ServiceError('El servicio seleccionado no es válido.', {
+        code: 'SERVICIO_NO_ENCONTRADO',
+      });
     }
 
     payload.servicio_id = changes.servicio_id;
@@ -355,23 +468,25 @@ export async function updateTurno(
   }
 
   if (Object.keys(payload).length === 0) {
-    throw new Error('No hay cambios para aplicar.');
+    throw new ServiceError('No hay cambios para aplicar.', { code: 'SIN_CAMBIOS' });
   }
 
-  // Pre-verificación de solape sobre los valores EFECTIVOS (cambio parcial),
-  // excluyendo el propio turno. Solo si el resultado va a ocupar agenda.
-  const { data: actual, error: actualError } = await supabase
-    .from('Turno')
-    .select('inicio, duracion_minutos, estado')
-    .eq('id', id)
-    .eq('barbero_id', barbero.id)
-    .maybeSingle();
-
-  if (actualError) throw new Error('No se pudo cargar el turno.');
-  if (!actual) throw new Error('Turno no encontrado.');
+  if (actualError) {
+    throw new ServiceError('No se pudo cargar el turno.', {
+      code: actualError.code,
+      cause: actualError,
+    });
+  }
+  if (!actual) {
+    throw new ServiceError('Turno no encontrado.', { code: 'TURNO_NO_ENCONTRADO' });
+  }
 
   const inicioEfectivoStr = payload.inicio ?? actual.inicio;
-  if (!inicioEfectivoStr) throw new Error('El turno no tiene un horario de inicio válido.');
+  if (!inicioEfectivoStr) {
+    throw new ServiceError('El turno no tiene un horario de inicio válido.', {
+      code: 'HORARIO_INVALIDO',
+    });
+  }
 
   const estadoEfectivo = payload.estado ?? actual.estado;
   const inicioEfectivo = new Date(inicioEfectivoStr);
@@ -381,7 +496,9 @@ export async function updateTurno(
   if (typeof estadoEfectivo === 'string' && OCCUPYING_STATUSES.includes(estadoEfectivo)) {
     const overlapping = await findOverlaps(barbero.id, inicioEfectivo, finEfectivo, id);
     if (overlapping.length > 0) {
-      throw new Error('El horario seleccionado ya no está disponible.');
+      throw new ServiceError('El horario seleccionado ya no está disponible.', {
+        code: 'HORARIO_OCUPADO',
+      });
     }
   }
 
@@ -390,21 +507,55 @@ export async function updateTurno(
     .update(payload)
     .eq('id', id)
     .eq('barbero_id', barbero.id)
-    .select('*')
+    .select(
+      `
+      id,
+      inicio,
+      cliente_id,
+      servicio_id,
+      estado,
+      duracion_minutos,
+      Cliente ( nombre, telefono ),
+      Servicio ( nombre, precio, duracion )
+    `,
+    )
     .single();
 
   if (error) {
     // 23P01 = exclusion_violation (constraint `turno_sin_solape`).
     if (error.code === '23P01') {
-      throw new Error('El horario seleccionado ya no está disponible.');
+      throw new ServiceError('El horario seleccionado ya no está disponible.', {
+        code: error.code,
+        cause: error,
+      });
     }
     if (error.code === '23505' || error.message?.includes('unique')) {
-      throw new Error('El nuevo horario ya está reservado.');
+      throw new ServiceError('El nuevo horario ya está reservado.', {
+        code: error.code,
+        cause: error,
+      });
     }
-    throw new Error('No se pudo actualizar el turno.');
+    throw new ServiceError('No se pudo actualizar el turno.', {
+      code: error.code,
+      cause: error,
+    });
   }
 
-  return updatedTurno as Turno;
+  if (!updatedTurno) {
+    throw new ServiceError('No se pudo actualizar el turno.', {
+      code: 'TURNO_NO_ACTUALIZADO',
+    });
+  }
+
+  return {
+    ...updatedTurno,
+    Cliente: Array.isArray(updatedTurno.Cliente)
+      ? (updatedTurno.Cliente[0] ?? null)
+      : updatedTurno.Cliente,
+    Servicio: Array.isArray(updatedTurno.Servicio)
+      ? (updatedTurno.Servicio[0] ?? null)
+      : updatedTurno.Servicio,
+  } as TurnoConRelaciones;
 }
 
 /* =========================
@@ -415,7 +566,12 @@ export async function deleteTurno(id: number) {
 
   const { error } = await supabase.from('Turno').delete().eq('id', id).eq('barbero_id', barbero.id);
 
-  if (error) throw new Error('No se pudo eliminar el turno.');
+  if (error) {
+    throw new ServiceError('No se pudo eliminar el turno.', {
+      code: error.code,
+      cause: error,
+    });
+  }
 
   return true;
 }

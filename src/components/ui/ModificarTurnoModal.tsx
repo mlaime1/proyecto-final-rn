@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { getServicios, getTurnosPorDia, type Servicio } from '@/services/turnos.service';
 import { getBarbero, type BarberoConBarberia } from '@/services/barbero.service';
 import { getBloqueosDelDia } from '@/services/bloqueos.service';
@@ -64,30 +64,70 @@ export default function ModificarTurnoModal({
 
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [occupiedSlots, setOccupiedSlots] = useState<string[]>([]);
+  const [occupiedSlots, setOccupiedSlots] = useState<Set<string>>(new Set());
 
   // Slots generados según apertura/cierre del barbero
-  const timeSlots = generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre);
+  const timeSlots = useMemo(
+    () => generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre),
+    [barbero?.hora_apertura, barbero?.hora_cierre],
+  );
 
   useEffect(() => {
+    let mounted = true;
+
     if (visible) {
-      loadBarbero();
-      loadServices();
+      getBarbero()
+        .then((data) => {
+          if (mounted) setBarbero(data);
+        })
+        .catch(() => {
+          // sin config del barbero, se usan los defaults de availability.ts
+        });
+
+      (async () => {
+        try {
+          setLoadingServices(true);
+          const data = await getServicios();
+          if (!mounted) return;
+          setServices(data);
+          if (turno?.servicio_id) {
+            const currentService = data.find((s) => s.id === turno.servicio_id);
+            if (currentService) setSelectedService(currentService);
+          }
+        } catch {
+          // Ignorar
+        } finally {
+          if (mounted) setLoadingServices(false);
+        }
+      })();
+
       if (turno) {
         const startDate = new Date(turno.inicio);
-        setSelectedDate(startDate);
-        setSelectedTime(
-          `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`,
-        );
+        if (mounted) {
+          setSelectedDate(startDate);
+          setSelectedTime(
+            `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`,
+          );
+        }
       }
     } else {
-      // Reset state on close
-      setSelectedTime(null);
-      setOccupiedSlots([]);
+      if (mounted) {
+        // Reset state on close
+        setSelectedTime(null);
+        setOccupiedSlots(new Set());
+      }
     }
+
+    return () => {
+      mounted = false;
+    };
   }, [visible, turno]);
 
   useEffect(() => {
+    // Igual que en nuevo.tsx: `mounted` es por ejecución del efecto y el cleanup
+    // descarta las respuestas de una fecha ya abandonada, sin necesidad de un token.
+    let mounted = true;
+
     async function loadOccupied() {
       if (!visible) return;
       try {
@@ -96,6 +136,8 @@ export default function ModificarTurnoModal({
           getBloqueosDelDia(selectedDate),
         ]);
 
+        if (!mounted) return;
+
         // omitir el turno actual del cálculo de ocupados
         const otrosTurnos = turno ? turnos.filter((t) => t.id !== turno.id) : turnos;
         const slots = computeOccupiedSlots(otrosTurnos, bloqueos);
@@ -103,7 +145,7 @@ export default function ModificarTurnoModal({
         setOccupiedSlots(slots);
 
         // Si no estamos inicializando con el turno viejo y el seleccionado se ocupó
-        if (selectedTime && slots.includes(selectedTime) && turno?.inicio) {
+        if (selectedTime && slots.has(selectedTime) && turno?.inicio) {
           const oldTimeH = new Date(turno.inicio).getHours().toString().padStart(2, '0');
           const oldTimeM = new Date(turno.inicio).getMinutes().toString().padStart(2, '0');
           if (selectedTime !== `${oldTimeH}:${oldTimeM}`) {
@@ -111,36 +153,16 @@ export default function ModificarTurnoModal({
           }
         }
       } catch (err) {
+        if (!mounted) return;
         console.error('Error cargando turnos del dia:', err);
       }
     }
     loadOccupied();
+
+    return () => {
+      mounted = false;
+    };
   }, [selectedDate, visible, turno]);
-
-  const loadBarbero = async () => {
-    try {
-      const data = await getBarbero();
-      setBarbero(data);
-    } catch {
-      // sin config del barbero, se usan los defaults de availability.ts
-    }
-  };
-
-  const loadServices = async () => {
-    try {
-      setLoadingServices(true);
-      const data = await getServicios();
-      setServices(data);
-      if (turno?.servicio_id) {
-        const currentService = data.find((s) => s.id === turno.servicio_id);
-        if (currentService) setSelectedService(currentService);
-      }
-    } catch {
-      // Ignorar
-    } finally {
-      setLoadingServices(false);
-    }
-  };
 
   // Solo días hábiles del barbero dentro de los próximos 14 días
   const availableDays: Date[] = Array.from({ length: 14 }, (_, i) => {
@@ -288,7 +310,7 @@ export default function ModificarTurnoModal({
               <Text style={styles.label}>Horario</Text>
               <View style={styles.timeGrid}>
                 {timeSlots.map((time) => {
-                  const isOccupied = occupiedSlots.includes(time);
+                  const isOccupied = occupiedSlots.has(time);
 
                   const now = new Date();
                   const isToday =

@@ -1,8 +1,9 @@
 import Screen from '@/components/ui/Screen';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +18,7 @@ import ModificarTurnoModal from '@/components/ui/ModificarTurnoModal';
 import TurnoHeader from '@/components/turnos/TurnoHeader';
 import TurnoStatusPill from '@/components/turnos/TurnoStatusPill';
 import { colors, radius } from '@/components/turnos/theme';
+import { showAlert } from '@/lib/alert';
 
 const STATUS_LABELS: Record<string, string> = {
   confirmado: 'Confirmado',
@@ -133,9 +135,7 @@ export default function TurnoDetalleScreen() {
     try {
       setModificarModalVisible(false);
       setUpdating(true);
-      await updateTurno(turnoId, data);
-
-      const updated = await getTurnoById(turnoId);
+      const updated = await updateTurno(turnoId, data);
       setTurno(updated);
 
       setAlertModal({
@@ -183,6 +183,20 @@ export default function TurnoDetalleScreen() {
   const start = new Date(turno.inicio);
   const duracionMs = (turno.duracion_minutos || 30) * 60000;
   const end = new Date(start.getTime() + duracionMs);
+
+  const handleContactarWhatsapp = () => {
+    const digits = String(turno.Cliente?.telefono ?? '').replace(/\D/g, '');
+    if (!digits) {
+      showAlert(
+        'Sin teléfono',
+        'El cliente no tiene un teléfono registrado. No se puede contactar por WhatsApp.',
+      );
+      return;
+    }
+    Linking.openURL(`https://wa.me/${digits}`).catch(() => {
+      showAlert('Error', 'No se pudo abrir WhatsApp.');
+    });
+  };
 
   return (
     <Screen>
@@ -235,7 +249,7 @@ export default function TurnoDetalleScreen() {
 
         <View style={styles.divider} />
 
-        <TouchableOpacity style={styles.outlineButton} onPress={() => {}}>
+        <TouchableOpacity style={styles.outlineButton} onPress={handleContactarWhatsapp}>
           <Text style={styles.outlineButtonText}>Contactar por wsp</Text>
         </TouchableOpacity>
         <TouchableOpacity

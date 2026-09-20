@@ -1,7 +1,7 @@
 import Screen from '@/components/ui/Screen';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getBarbero } from '@/services/barbero.service';
 import { getTurnos, TurnoUI } from '@/services/turnos.service';
@@ -10,6 +10,10 @@ import { getTurnos, TurnoUI } from '@/services/turnos.service';
    Constants
 ========================= */
 const MAX_PROXIMOS_TURNOS = 4;
+
+// Límite de producto: hasta cuántos días atrás puede mirar "Último turno".
+// Un barbero sin turnos no cancelados en esta ventana verá la tarjeta vacía.
+const ULTIMO_TURNO_LOOKBACK_DIAS = 20;
 
 /* =========================
    Helpers
@@ -217,14 +221,15 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('Barbero');
 
-  useEffect(() => {
-    loadHomeData();
-  }, []);
-
-  const loadHomeData = async () => {
+  const loadHomeData = useCallback(async () => {
     try {
+      const desde = new Date();
+      desde.setDate(desde.getDate() - ULTIMO_TURNO_LOOKBACK_DIAS);
+
+      // Secuencial a propósito: getTurnos() también resuelve getBarbero().
+      // Paralelizarlos en cold cache duplicaría el SELECT de Barbero.
       const barbero = await getBarbero();
-      const turnosData = await getTurnos();
+      const turnosData = await getTurnos({ desde });
 
       setTurnos(turnosData);
 
@@ -236,7 +241,13 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadHomeData();
+    }, [loadHomeData]),
+  );
 
   const proximosTurnos = useMemo(() => selectProximosTurnos(turnos), [turnos]);
   const ultimoTurno = useMemo(() => selectUltimoTurno(turnos), [turnos]);

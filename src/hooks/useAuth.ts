@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { useAppStore } from '@/store/app.store';
 import { log } from '@/lib/logger';
 import { authService, AuthCredentials } from '@/services/auth.service';
 
@@ -39,6 +40,14 @@ export function useAuth() {
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (mounted) {
         log('[useAuth] onAuthStateChange event:', event, 'session:', session ? 'exists' : 'null');
+        // La caché de sesión (Barbero/Servicio) es por usuario. Hay que vaciarla en
+        // cada transición de sesión para que un usuario no herede los datos del
+        // anterior. Este es el único punto que cubre TODOS los caminos: incluye los
+        // SIGNED_OUT que emite Supabase por su cuenta (p. ej. cuando falla el
+        // refresh del token), que no pasan por authService.signOut.
+        if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
+          useAppStore.getState().clearSessionData();
+        }
         setSession(session);
         setLoading(false);
       }

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { getBarbero } from '@/services/barbero.service';
+import { ServiceError } from '@/services/error';
 import { Database } from '@/types/database.types';
 
 export type BloqueoHorario = Database['public']['Tables']['BloqueoHorario']['Row'];
@@ -8,7 +9,10 @@ export type BloqueoHorarioInsert = Database['public']['Tables']['BloqueoHorario'
 async function getCurrentBarbero() {
   const barbero = await getBarbero();
   if (!barbero) {
-    throw new Error('Tu cuenta no está vinculada a ninguna barbería. Contactá al administrador.');
+    throw new ServiceError(
+      'Tu cuenta no está vinculada a ninguna barbería. Contactá al administrador.',
+      { code: 'CUENTA_NO_VINCULADA' },
+    );
   }
   return barbero;
 }
@@ -32,7 +36,12 @@ export async function getBloqueosDelDia(date: Date): Promise<BloqueoHorario[]> {
     .eq('barbero_id', barbero.id)
     .eq('fecha', toDateString(date));
 
-  if (error) throw new Error('No se pudieron cargar los bloqueos del día.');
+  if (error) {
+    throw new ServiceError('No se pudieron cargar los bloqueos del día.', {
+      code: error.code,
+      cause: error,
+    });
+  }
 
   return (data ?? []) as BloqueoHorario[];
 }
@@ -50,7 +59,12 @@ export async function getBloqueos(): Promise<BloqueoHorario[]> {
     .gte('fecha', toDateString(new Date()))
     .order('fecha', { ascending: true });
 
-  if (error) throw new Error('No se pudieron cargar los bloqueos.');
+  if (error) {
+    throw new ServiceError('No se pudieron cargar los bloqueos.', {
+      code: error.code,
+      cause: error,
+    });
+  }
 
   return (data ?? []) as BloqueoHorario[];
 }
@@ -81,7 +95,12 @@ export async function createBloqueo(data: CreateBloqueoData): Promise<BloqueoHor
     .select('*')
     .single();
 
-  if (error || !created) throw new Error('No se pudo crear el bloqueo.');
+  if (error || !created) {
+    throw new ServiceError('No se pudo crear el bloqueo.', {
+      code: error?.code,
+      cause: error,
+    });
+  }
 
   return created as BloqueoHorario;
 }
@@ -98,7 +117,12 @@ export async function deleteBloqueo(id: number): Promise<boolean> {
     .eq('id', id)
     .eq('barbero_id', barbero.id);
 
-  if (error) throw new Error('No se pudo eliminar el bloqueo.');
+  if (error) {
+    throw new ServiceError('No se pudo eliminar el bloqueo.', {
+      code: error.code,
+      cause: error,
+    });
+  }
 
   return true;
 }

@@ -140,10 +140,14 @@ async function findOverlaps(
 /* =========================
    GET TURNOS
 ========================= */
-export async function getTurnos(): Promise<TurnoUI[]> {
+export async function getTurnos(opts?: {
+  desde?: Date;
+  hasta?: Date;
+  limit?: number;
+}): Promise<TurnoUI[]> {
   const barbero = await getCurrentBarbero();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('Turno')
     .select(
       `
@@ -158,6 +162,22 @@ export async function getTurnos(): Promise<TurnoUI[]> {
     )
     .eq('barbero_id', barbero.id)
     .order('inicio', { ascending: true });
+
+  if (opts?.desde) {
+    const { startString } = normalizeDateBounds(opts.desde);
+    query = query.gte('inicio', startString);
+  }
+
+  if (opts?.hasta) {
+    const { endString } = normalizeDateBounds(opts.hasta);
+    query = query.lte('inicio', endString);
+  }
+
+  if (opts?.limit) {
+    query = query.limit(opts.limit);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw new Error('No se pudieron cargar los turnos.');
 

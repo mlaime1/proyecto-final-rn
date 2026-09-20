@@ -11,6 +11,10 @@ import { getTurnos, TurnoUI } from '@/services/turnos.service';
 ========================= */
 const MAX_PROXIMOS_TURNOS = 4;
 
+// Límite de producto: hasta cuántos días atrás puede mirar "Último turno".
+// Un barbero sin turnos no cancelados en esta ventana verá la tarjeta vacía.
+const ULTIMO_TURNO_LOOKBACK_DIAS = 30;
+
 /* =========================
    Helpers
 ========================= */
@@ -219,8 +223,11 @@ export default function Home() {
 
   const loadHomeData = useCallback(async () => {
     try {
+      const desde = new Date();
+      desde.setDate(desde.getDate() - ULTIMO_TURNO_LOOKBACK_DIAS);
+
       const barbero = await getBarbero();
-      const turnosData = await getTurnos();
+      const turnosData = await getTurnos({ desde });
 
       setTurnos(turnosData);
 

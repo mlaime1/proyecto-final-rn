@@ -3,7 +3,7 @@
 // según el mock de referencia con paleta violeta. Sin header propio ni
 // FAB: respeta el chrome actual (Screen + tab bar).
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -47,22 +47,22 @@ export default function TurnosScreen() {
   const [selectedDay, setSelectedDay] = useState<Date>(() => new Date());
   const [filtro, setFiltro] = useState<Filtro>('todos');
 
+  const dias = useMemo(() => buildDayRange(), []);
+
   const loadTurnos = useCallback(async () => {
     try {
       setError(null);
-      const data = await getTurnos();
+      const data = await getTurnos({
+        desde: dias[0],
+        hasta: dias[dias.length - 1],
+      });
       setTurnos(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron cargar los turnos.');
-    }
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      await loadTurnos();
+    } finally {
       setLoading(false);
-    })();
-  }, [loadTurnos]);
+    }
+  }, [dias]);
 
   useFocusEffect(
     useCallback(() => {
@@ -76,7 +76,6 @@ export default function TurnosScreen() {
     setRefreshing(false);
   };
 
-  const dias = useMemo(() => buildDayRange(), []);
   const selectedKey = dateKey(selectedDay);
 
   const turnosDelDia = useMemo(

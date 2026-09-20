@@ -489,7 +489,7 @@ Esta fase sola habilita la demo. No tocar performance antes de terminarla.
 
 **Resultado (2026-09-20): los tres criterios DUROS se cumplen.** 1 sola fuente `.ttf` (exactamente la de Ionicons) · 389.724 B (exactamente el límite) · JS gzip 508.210 → **374.979 B**. El **objetivo informativo de ≤ 350.000 B NO se alcanzó** (quedó en 374.979 B); cerrar esa brecha requeriría H5 (code splitting), que sigue diferido. H5 queda documentado como no ejecutado, con el motivo: falta la medición del artefacto desplegado. Gates: `npx tsc --noEmit` 0 errores · `npm run lint` 0 errores / 9 warnings · `npm run build:web` exit 0.
 
-### Fase 3 — Performance de datos (H6-H14) — H6/H10 ✅ ejecutada 2026-09-20 · H7/H8/H9 pendientes
+### Fase 3 — Performance de datos (H6-H14) — H6/H7/H8/H9/H10 ✅ ejecutadas 2026-09-20 · H11-H14 pendientes
 
 Ordenar por impacto: primero la caché (H6/H10), después los límites de query (H7), después el doble fetch (H8) y el resto. **Solo el bloque H6/H10 integra la ruta crítica de la demo** (es lo que reduce las requests visibles); el resto puede esperar.
 
@@ -501,15 +501,20 @@ Ordenar por impacto: primero la caché (H6/H10), después los límites de query 
    - **El paso 3 original del smoke test ya NO existe:** la rama "Sesión expirada" en `nuevo.tsx` era código muerto y se eliminó en la Fase 1. Lo que este cambio debe garantizar es que una sesión revocada siga terminando en `/login` — y eso ahora pasa exclusivamente por `SIGNED_OUT` → root layout.
    - **Conteo de llamadas de red — ANÁLISIS ESTÁTICO, no medición.** Medir requests reales necesita un navegador con DevTools, que no se ejecutó. Por análisis estático: Home pase de **~5 requests a 2** (`getUser()` remoto ×2 + SELECT `Barbero` ×2 + `Turno` ×1 → `Barbero` ×1 + `Turno` ×1); la agenda de **~6 a ~3**. `getServicios()` pasa a 0 red en llamadas sucesivas. **No reportar esto como medido.**
    - ⚠️ **Limitación conocida (WARNING, no corregida):** si la query devuelve un error de auth y el `signOutSilently()` posterior **falla** (sin red), no se emite `SIGNED_OUT`, el root layout no redirige, y el usuario queda varado con el mensaje equivocado *"Tu cuenta no está vinculada a ninguna barbería"*. Alcanzabilidad baja (requiere error de auth en cache miss **y** caída de red), pero es real.
-2. **H7 — acotar `getTurnos()` (SOBREVIVE).**
-   - Agregar ventana de fechas y/o `.limit()` en `src/services/turnos.service.ts:142-159`.
-   - Ajustar los consumidores para que Home pida solo los próximos + el último, sin ordenar todo el historial en memoria (`(tabs)/index.tsx:242`).
-3. **H8 — eliminar doble fetch de agenda (SOBREVIVE).**
-   - Borrar el `useEffect` de `src/app/(tabs)/turnos/index.tsx:60-65`; dejar `useFocusEffect`.
-   - Agregar guard de frescura para el regreso desde detalle.
-4. **H9 — guard de race en disponibilidad (SOBREVIVE).**
-   - Abort/token por `selectedDate` en `nuevo.tsx:66-96` y `ModificarTurnoModal.tsx:90-118`.
-   - Patrón `mounted` en los efectos que faltan.
+2. **H7 — acotar `getTurnos()` (SOBREVIVE) — ✅ IMPLEMENTADO.**
+   - `getTurnos()` acepta `opts?: { desde?: Date; hasta?: Date; limit?: number }` y aplica `.gte/.lte/.limit`. Reusa **`normalizeDateBounds`**, que emite el string local-naive correcto (`- tzOffset` + `.slice(0,-1)`). **Nada de ISO UTC**: en Argentina (UTC−3) eso habría corrido la ventana un día.
+   - **Agenda:** pasa la ventana completa de la tira — `[dias[0], dias[último]]` de `buildDayRange()` = **hoy−5 … hoy+10** (16 días). La agenda filtra por día en memoria sobre ese conjunto acotado, así que la ventana tiene que cubrir **toda** la tira, no un día.
+   - **Home:** pasa solo un límite inferior y **mantiene UNA sola query** (respetando el criterio 5.2 de ≤ 3 requests). Se acota a `ULTIMO_TURNO_LOOKBACK_DIAS = 30`.
+   - ⚠️ **Cambio de producto a confirmar:** si un barbero no tiene turnos no cancelados en los últimos 30 días, la tarjeta **"Último turno" ahora aparece vacía** donde antes mostraba el más reciente de todo el historial. Es deliberado y está en una constante comentada, pero es visible en demo. Si no se acepta, hay que cambiar la constante o el criterio.
+   - Cumple el objetivo: ya no se ordena el historial completo en memoria, y la carga deja de crecer sin límite con las reservas.
+3. **H8 — eliminar doble fetch de agenda (SOBREVIVE) — ✅ IMPLEMENTADO (con un desvío deliberado).**
+   - Se **borró el `useEffect` de montaje** de `src/app/(tabs)/turnos/index.tsx`; `useFocusEffect` cubre el primer montaje. Verificado por grep: solo queda el efecto de foco.
+   - **DESVÍO: NO se agregó el guard de frescura (TTL) que pedía este paso.** Un guard por tiempo cambia correctitud por una request ahorrada: si el usuario crea o cancela un turno y vuelve a la agenda dentro del TTL, vería datos viejos — un bug visible en demo, peor que un fetch de más. Con H7 la consulta ya está acotada y con H6 `getBarbero()` es gratis, así que el refetch por foco es barato. **Se prefirió frescura.**
+   - **🔴 Regresión introducida y corregida (WARNING):** al mover la carga al efecto de foco, se puso `setLoading(true)` **dentro** de `loadTurnos`. Como el render cambia la lista entera por un `<ActivityIndicator>` cuando `loading` es true, **cada regreso desde el detalle mostraba un spinner en lugar de la lista**, y el pull-to-refresh mostraba **doble spinner** (el `RefreshControl` + el de pantalla completa). No existía antes, porque `loading` solo se tocaba en el montaje. **Corregido:** se quitó el `setLoading(true)` — el estado inicial ya es `true` y el `finally` lo baja, que es exactamente el patrón de la Home tras la Fase 1.
+4. **H9 — guard de race en disponibilidad (SOBREVIVE) — ✅ IMPLEMENTADO.**
+   - Se agregó el patrón `mounted` (por ejecución del efecto) en los efectos de `nuevo.tsx` y `ModificarTurnoModal.tsx` que cargan disponibilidad. **El guard de race funciona a través de `mounted`:** cuando `selectedDate` cambia, React corre el cleanup anterior (`mounted = false`) antes de arrancar el nuevo efecto, así que la respuesta vieja se descarta sola. Verificado por un revisor independiente.
+   - **Código muerto eliminado (SUGGESTION):** se había agregado además un token por fecha (`requestDateKey`). **Es inefectivo:** dentro del closure del efecto, `selectedDate` es la misma referencia congelada de la que se calculó `requestDateKey`, así que `dateKey(selectedDate) !== requestDateKey` es **siempre falso** y el chequeo nunca se dispara. Se eliminó junto con los imports de `dateKey` que había introducido, para no dejar una falsa sensación de protección. Se dejó un comentario explicando qué protege realmente.
+   - ⚠️ **`limit` quedó sin consumidores.** La firma lo soporta pero ningún llamador lo usa. Es API especulativa; si no se va a necesitar, conviene quitarlo.
 5. **H11 — errores (H11a SOBREVIVE / H11b SE DESCARTA).**
    - H11a: distinguir el error de auth de "cuenta no vinculada" y no reemplazar errores reales de Supabase por strings genéricos (`barbero.service.ts:21`, `turnos.service.ts`).
    - H11b: el surfacing en pantallas que se reescriben NO se hace ahora; la UI nueva nace con el patrón correcto de `turnos/index.tsx:55-57`.
@@ -517,6 +522,8 @@ Ordenar por impacto: primero la caché (H6/H10), después los límites de query 
 7. **H13 + H14 (SOBREVIVE).** Usar la fila devuelta por `updateTurno`; reemplazar `SELECT *`; devolver `Set<string>` desde `computeOccupiedSlots` y actualizar los 2 consumidores.
 
 **Hecho cuando:** el primer render de Home hace ≤ 3 requests (sesión local + 1 SELECT de `Barbero` + 1 query de `Turno`), `getBarbero()` no repite red dentro de la sesión, la agenda monta con 1 sola consulta de turnos, y tocar días rápido nunca muestra slots del día equivocado.
+
+**Estado de Fase 3 al 2026-09-20:** ✅ **H6, H7, H8, H9 y H10 implementados.** Criterios duros: Home hace **1 query de `Turno`** acotada a 30 días + 1 `Barbero` (y 0 red en llamadas siguientes por la caché) → cumple ≤ 3; la agenda monta con **1 sola consulta** (el doble fetch se eliminó) acotada a la ventana de 16 días de la tira; el race de días quedó cubierto por el patrón `mounted`. Gates: `npx tsc --noEmit` 0 errores · `npm run lint` 0 errores / 9 warnings · `npm run build:web` exit 0 (1 `.ttf` / 389.724 B, sin regresión de bundle). **Pendiente:** confirmar el cambio de producto de los 30 días, y el smoke test en navegador. **El conteo de requests sigue siendo análisis estático, no medición.**
 
 ### Fase 4 — Render (H24-H28) (pendiente, mayormente SE DESCARTA)
 

@@ -12,29 +12,38 @@ export type Database = {
         Row: {
           admin_user_id: string | null;
           created_at: string;
+          description: string | null;
           dias_habiles: number[] | null;
           hora_apertura: string | null;
           hora_cierre: string | null;
           id: number;
           nombre: string;
+          public_slug: string | null;
+          publicado: boolean;
         };
         Insert: {
           admin_user_id?: string | null;
           created_at?: string;
+          description?: string | null;
           dias_habiles?: number[] | null;
           hora_apertura?: string | null;
           hora_cierre?: string | null;
-          id?: number;
+          id?: never;
           nombre: string;
+          public_slug?: string | null;
+          publicado?: boolean;
         };
         Update: {
           admin_user_id?: string | null;
           created_at?: string;
+          description?: string | null;
           dias_habiles?: number[] | null;
           hora_apertura?: string | null;
           hora_cierre?: string | null;
-          id?: number;
+          id?: never;
           nombre?: string;
+          public_slug?: string | null;
+          publicado?: boolean;
         };
         Relationships: [];
       };
@@ -46,11 +55,13 @@ export type Database = {
           created_at: string;
           descripcion: string | null;
           dias_habiles: number[] | null;
+          duracion_default: number | null;
           foto_url: string | null;
           hora_apertura: string | null;
           hora_cierre: string | null;
           id: number;
           nombre: string;
+          precio_base: number | null;
           users_id: string;
         };
         Insert: {
@@ -60,11 +71,13 @@ export type Database = {
           created_at?: string;
           descripcion?: string | null;
           dias_habiles?: number[] | null;
+          duracion_default?: number | null;
           foto_url?: string | null;
           hora_apertura?: string | null;
           hora_cierre?: string | null;
-          id?: number;
+          id?: never;
           nombre: string;
+          precio_base?: number | null;
           users_id: string;
         };
         Update: {
@@ -74,11 +87,13 @@ export type Database = {
           created_at?: string;
           descripcion?: string | null;
           dias_habiles?: number[] | null;
+          duracion_default?: number | null;
           foto_url?: string | null;
           hora_apertura?: string | null;
           hora_cierre?: string | null;
-          id?: number;
+          id?: never;
           nombre?: string;
+          precio_base?: number | null;
           users_id?: string;
         };
         Relationships: [
@@ -107,7 +122,7 @@ export type Database = {
           fecha: string;
           hora_fin?: string | null;
           hora_inicio?: string | null;
-          id?: number;
+          id?: never;
           motivo?: string | null;
         };
         Update: {
@@ -116,7 +131,7 @@ export type Database = {
           fecha?: string;
           hora_fin?: string | null;
           hora_inicio?: string | null;
-          id?: number;
+          id?: never;
           motivo?: string | null;
         };
         Relationships: [
@@ -144,7 +159,7 @@ export type Database = {
           barberia_id: number;
           created_at?: string | null;
           email?: string | null;
-          id?: number;
+          id?: never;
           nombre: string;
           notas?: string | null;
           telefono?: number | null;
@@ -154,7 +169,7 @@ export type Database = {
           barberia_id?: number;
           created_at?: string | null;
           email?: string | null;
-          id?: number;
+          id?: never;
           nombre?: string;
           notas?: string | null;
           telefono?: number | null;
@@ -162,7 +177,7 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: 'Cliente_barberia_id_fkey';
+            foreignKeyName: 'cliente_barberia_id_fkey';
             columns: ['barberia_id'];
             isOneToOne: false;
             referencedRelation: 'Barberia';
@@ -185,7 +200,7 @@ export type Database = {
           created_at?: string;
           email: string;
           expiracion: string;
-          id?: number;
+          id?: never;
           turno_id: number;
           usado?: boolean;
         };
@@ -194,7 +209,7 @@ export type Database = {
           created_at?: string;
           email?: string;
           expiracion?: string;
-          id?: number;
+          id?: never;
           turno_id?: number;
           usado?: boolean;
         };
@@ -219,14 +234,14 @@ export type Database = {
         Insert: {
           barbero_id: number;
           duracion?: number | null;
-          id?: number;
+          id?: never;
           nombre?: string | null;
           precio?: number | null;
         };
         Update: {
           barbero_id?: number;
           duracion?: number | null;
-          id?: number;
+          id?: never;
           nombre?: string | null;
           precio?: number | null;
         };
@@ -259,7 +274,7 @@ export type Database = {
           created_at?: string;
           duracion_minutos: number;
           estado?: Database['public']['Enums']['estado_turno'] | null;
-          id?: number;
+          id?: never;
           inicio: string;
           origen: string;
           servicio_id: number;
@@ -271,7 +286,7 @@ export type Database = {
           created_at?: string;
           duracion_minutos?: number;
           estado?: Database['public']['Enums']['estado_turno'] | null;
-          id?: number;
+          id?: never;
           inicio?: string;
           origen?: string;
           servicio_id?: number;
@@ -279,21 +294,21 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: 'Turno_barbero_id_fkey';
-            columns: ['barbero_id'];
-            isOneToOne: false;
-            referencedRelation: 'Barbero';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'Turno_cliente_id_fkey';
+            foreignKeyName: 'turno_cliente_id_fkey';
             columns: ['cliente_id'];
             isOneToOne: false;
             referencedRelation: 'Cliente';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'Turno_servicio_id_fkey';
+            foreignKeyName: 'turno_emprendedor_id_fkey';
+            columns: ['barbero_id'];
+            isOneToOne: false;
+            referencedRelation: 'Barbero';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'turno_servicio_id_fkey';
             columns: ['servicio_id'];
             isOneToOne: false;
             referencedRelation: 'Servicio';
@@ -313,7 +328,7 @@ export type Database = {
           p_nombre: string;
           p_origen: string;
           p_servicio_id: number;
-          p_telefono?: number | null;
+          p_telefono?: number;
         };
         Returns: {
           barbero_id: number;
@@ -327,7 +342,15 @@ export type Database = {
           servicio_id: number;
           update_at: string | null;
         };
+        SetofOptions: {
+          from: '*';
+          to: 'Turno';
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
+      public_catalog: { Args: { p_slug: string }; Returns: Json };
+      public_context: { Args: { p_slug: string }; Returns: Json };
     };
     Enums: {
       estado_turno: 'pendiente' | 'confirmado' | 'completado' | 'cancelado' | 'ausente';

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { useAppStore } from '@/store/app.store';
 
 export type AuthCredentials = {
   email: string;
@@ -15,5 +16,6 @@ export const authService = {
   signOut: async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    useAppStore.getState().clearSessionData();
   },
 };

@@ -187,9 +187,13 @@ En el montaje de Home: `src/app/(tabs)/index.tsx:226` llama `getBarbero()` y `:2
 
 `src/hooks/useAuth.ts:21` ya usa `getSession()` correctamente: ese es el patrón a seguir.
 
-**Regresión que introduce el cambio (crítica):** hoy `getBarbero()` usa `supabase.auth.getUser()`, que es una llamada REMOTA que valida el token del lado del servidor. Por eso una sesión expirada o revocada se detecta AHÍ, de entrada. Al pasar a `getSession()` más caché esa validación desaparece: una sesión revocada ya no se detecta por adelantado y aparece recién cuando falla la primera query. El cambio altera **cuándo y cómo** se detecta la expiración, así que el plan debe definir cómo se sigue detectando después del cambio: por ejemplo, un chequeo explícito de validez de sesión/token en un borde conocido, o tratar el primer 401 de una query como señal de expiración y navegar a login. **El paso 3 del smoke test debe REDISEÑARSE después de que H6 aterrice; no se puede asumir que sigue pasando. El atajo original —el alert "Sesión expirada" en `nuevo.tsx`— resultó código muerto y se eliminó en la Fase 1 (ver H1), así que hoy la única vía hacia `/login` es el redirect del root layout ante `SIGNED_OUT`, y H6 debe garantizar que ese borde siga existiendo.**
+**Regresión que introduce el cambio (crítica) — ✅ RESUELTA en Fase 3, con un desvío respecto de lo previsto.** Al pasar a `getSession()` + caché, se pierde la validación remota del token que hacía `getUser()`. El plan pedía "definir cómo se sigue detectando después". **Se implementó y se verificó independientemente, y el resultado fue distinto al diseñado:**
+- La detección **proactiva** (comparar `expires_at`) resultó **código muerto** y se eliminó: `getSession()` ya refresca cuando corresponde y solo devuelve `session: null` si el refresh falló (`GoTrueClient.js:2341-2373`), así que nunca entrega una sesión expirada.
+- El mecanismo real es: **fallo de refresh → Supabase emite `SIGNED_OUT` → el redirect del root layout manda a `/login`**. A eso se suma la detección **reactiva** sobre un error de auth en la query (`isAuthError`), que sí es alcanzable.
+- **Hallazgo crítico derivado:** mientras la caché solo se limpiaba en `authService.signOut`, el camino de `SIGNED_OUT` automático dejaba la caché del usuario anterior y **el siguiente usuario veía datos del anterior** (ver Fase 3, paso 1). Corregido limpiando en `onAuthStateChange`.
+- **El paso 3 del smoke test debe seguir rediseñado** (el alert original en `nuevo.tsx` era código muerto y se borró en Fase 1): probar que una sesión revocada termina en `/login` y que **no** se muestran datos del usuario anterior.
 
-**Fix:** cachear el barbero resuelto en el store de Zustand (`src/store/app.store.ts`, hoy casi vacío) durante la sesión, invalidar en `signOut` y en `updateHorarioHabitual`, y preferir `getSession()` —sin perder un mecanismo explícito de detección de expiración.
+**Fix — ✅ APLICADO:** caché del barbero resuelto en el store de Zustand (`src/store/app.store.ts`) durante la sesión, con `getSession()` en lugar de `getUser()`, e invalidación en `signOut`, en `updateHorarioHabitual` y —clave— en cada transición de sesión (`SIGNED_OUT`/`SIGNED_IN`). La caché **nunca** se limpia en `TOKEN_REFRESHED`, que es el mismo usuario.
 
 ### H7 — `getTurnos()` trae el historial completo (ALTO — SOBREVIVE)
 
@@ -215,7 +219,7 @@ Además, varias pantallas no protegen `setState` después del unmount (`nuevo.ts
 
 `perfil/index.tsx:31-46`, `perfil/horario.tsx:53-71`, `perfil/excepciones.tsx:121-136`, `turnos/nuevo.tsx:61-64` y `ModificarTurnoModal.tsx:72-88` llaman `getBarbero()` y/o `getServicios()` frescos en cada montaje o apertura, aunque ese dato es estático durante la sesión.
 
-**Fix:** una caché de sesión (store) para `Barbero` (con `hora_apertura`, `hora_cierre`, `dias_habiles`) y `Servicio[]`, con invalidación explícita al actualizar horario. Es exactamente el mismo mecanismo de H6.
+**Fix — ✅ APLICADO:** caché de sesión (store) para `Barbero` (con `hora_apertura`, `hora_cierre`, `dias_habiles`) y `Servicio[]`, con invalidación explícita al actualizar horario y en cada transición de sesión. Es exactamente el mismo mecanismo de H6. Verificado que **no existe ninguna mutación de `Servicio`** en la app (solo SELECT), así que el catálogo es genuinamente estático durante la sesión y no hay camino de staleness interno.
 
 ### H11 — Errores tragados: patrón en servicios vs. surfacing en UI (MEDIO — mixto)
 
@@ -485,16 +489,18 @@ Esta fase sola habilita la demo. No tocar performance antes de terminarla.
 
 **Resultado (2026-09-20): los tres criterios DUROS se cumplen.** 1 sola fuente `.ttf` (exactamente la de Ionicons) · 389.724 B (exactamente el límite) · JS gzip 508.210 → **374.979 B**. El **objetivo informativo de ≤ 350.000 B NO se alcanzó** (quedó en 374.979 B); cerrar esa brecha requeriría H5 (code splitting), que sigue diferido. H5 queda documentado como no ejecutado, con el motivo: falta la medición del artefacto desplegado. Gates: `npx tsc --noEmit` 0 errores · `npm run lint` 0 errores / 9 warnings · `npm run build:web` exit 0.
 
-### Fase 3 — Performance de datos (H6-H14) (pendiente)
+### Fase 3 — Performance de datos (H6-H14) — H6/H10 ✅ ejecutada 2026-09-20 · H7/H8/H9 pendientes
 
 Ordenar por impacto: primero la caché (H6/H10), después los límites de query (H7), después el doble fetch (H8) y el resto. **Solo el bloque H6/H10 integra la ruta crítica de la demo** (es lo que reduce las requests visibles); el resto puede esperar.
 
-1. **H6 + H10 — caché de sesión (SOBREVIVE).**
-   - Extender `src/store/app.store.ts` para cachear `Barbero` y `Servicio[]` de la sesión.
-   - Cambiar `getBarbero()` para preferir `getSession()` y usar el store como caché; invalidar en `signOut` y en `updateHorarioHabitual` (`barbero.service.ts:46`).
-   - **Definir la detección de expiración que reemplaza a `getUser()` (ver H6).** Dejar explícito cómo se detecta una sesión revocada después del cambio (chequeo de validez en un borde conocido o tratar el primer 401 de una query como expiración y navegar a login).
-   - **El paso 3 original del smoke test ya NO existe:** la rama "Sesión expirada" en `nuevo.tsx` era código muerto y se eliminó en la Fase 1. Lo que este cambio debe garantizar es que una sesión revocada siga terminando en `/login`, y hoy la única vía es el redirect del root layout ante `SIGNED_OUT`. Definir y probar ese borde es trabajo de H6, no un paso heredado.
-   - Registrar cuántas llamadas de red hace `getBarbero()` por sesión.
+1. **H6 + H10 — caché de sesión (SOBREVIVE) — ✅ IMPLEMENTADO.**
+   - `src/store/app.store.ts` cachea `barbero` (con `Barberia` embebida) y `servicios`, con `clearSessionData()`.
+   - `getBarbero()` (`src/services/barbero.service.ts`) es **cache-first** y usa **`getSession()` (local)** en lugar de `getUser()` (remoto). **No cachea `null`**, para no bloquear a un usuario cuya cuenta se vincule después. `getServicios()` (`turnos.service.ts`) también es cache-first. Sin cambios de firma ni de mensajes de error para los consumidores.
+   - **Detección de expiración — RESUELTA, con una corrección importante.** El diseño original tenía dos mitades: una proactiva (comparar `expires_at`) y una reactiva (primer error de auth en la query). **La verificación independiente demostró que la proactiva es CÓDIGO MUERTO:** `getSession()` ya intenta refrescar cuando la sesión expiró y solo devuelve `session: null` si el refresh **falló** (`GoTrueClient.js:2341-2373`, márgen de 90 s), así que nunca devuelve una sesión expirada. Esa rama se **eliminó**. **El mecanismo real, y el único, es:** Supabase emite `SIGNED_OUT` cuando el refresh falla → el redirect del root layout manda a `/login`. La mitad reactiva (`isAuthError` sobre la query) sí es alcanzable y se conservó.
+   - **🔴 FUGA ENTRE USUARIOS DETECTADA Y CORREGIDA (CRITICAL).** La caché se limpiaba **solo** en `authService.signOut`. Cualquier transición de sesión que no pasara por ahí —y en particular los `SIGNED_OUT` que emite Supabase por su cuenta al fallar el refresh, y el propio `signOutSilently()`— **dejaba la caché con el barbero del usuario anterior**. Como `getBarbero()` devuelve cache hit sin consultar, **el siguiente usuario que iniciara sesión veía los turnos, nombres y teléfonos del anterior** (las queries se scopean por `barbero.id`). Antes del cambio esto era imposible porque siempre se re-consultaba con el usuario actual. **Fix aplicado:** limpiar la caché en el único punto que cubre TODOS los caminos, `onAuthStateChange` de `src/hooks/useAuth.ts`, ante `SIGNED_OUT` y `SIGNED_IN`. El `clearSessionData()` de `authService.signOut` se mantuvo como redundancia.
+   - **El paso 3 original del smoke test ya NO existe:** la rama "Sesión expirada" en `nuevo.tsx` era código muerto y se eliminó en la Fase 1. Lo que este cambio debe garantizar es que una sesión revocada siga terminando en `/login` — y eso ahora pasa exclusivamente por `SIGNED_OUT` → root layout.
+   - **Conteo de llamadas de red — ANÁLISIS ESTÁTICO, no medición.** Medir requests reales necesita un navegador con DevTools, que no se ejecutó. Por análisis estático: Home pase de **~5 requests a 2** (`getUser()` remoto ×2 + SELECT `Barbero` ×2 + `Turno` ×1 → `Barbero` ×1 + `Turno` ×1); la agenda de **~6 a ~3**. `getServicios()` pasa a 0 red en llamadas sucesivas. **No reportar esto como medido.**
+   - ⚠️ **Limitación conocida (WARNING, no corregida):** si la query devuelve un error de auth y el `signOutSilently()` posterior **falla** (sin red), no se emite `SIGNED_OUT`, el root layout no redirige, y el usuario queda varado con el mensaje equivocado *"Tu cuenta no está vinculada a ninguna barbería"*. Alcanzabilidad baja (requiere error de auth en cache miss **y** caída de red), pero es real.
 2. **H7 — acotar `getTurnos()` (SOBREVIVE).**
    - Agregar ventana de fechas y/o `.limit()` en `src/services/turnos.service.ts:142-159`.
    - Ajustar los consumidores para que Home pida solo los próximos + el último, sin ordenar todo el historial en memoria (`(tabs)/index.tsx:242`).

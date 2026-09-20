@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { getBarbero } from '@/services/barbero.service';
+import { useAppStore } from '@/store/app.store';
 import { Database } from '@/types/database.types';
 
 /* =========================
@@ -225,7 +226,13 @@ export async function getTurnoById(id: number) {
 /* =========================
    SERVICIOS (catálogo propio del barbero)
 ========================= */
-export async function getServicios() {
+export async function getServicios(): Promise<Servicio[]> {
+  const { servicios: cached, setServicios } = useAppStore.getState();
+
+  if (cached) {
+    return cached;
+  }
+
   const barbero = await getCurrentBarbero();
 
   const { data, error } = await supabase
@@ -235,7 +242,10 @@ export async function getServicios() {
     .order('id', { ascending: true });
 
   if (error) throw new Error('No se pudieron cargar los servicios.');
-  return data as Servicio[];
+
+  const result = (data ?? []) as Servicio[];
+  setServicios(result);
+  return result;
 }
 
 /* =========================

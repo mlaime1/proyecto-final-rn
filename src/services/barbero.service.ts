@@ -1,10 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { useAppStore, type CachedBarbero } from '@/store/app.store';
-import { Database } from '@/types/database.types';
+import { ServiceError } from '@/services/error';
 
 export type Barbero = CachedBarbero;
-export type Barberia = Database['public']['Tables']['Barberia']['Row'];
-
 export type BarberoConBarberia = CachedBarbero;
 
 function isAuthError(error: { message?: string; code?: string }): boolean {
@@ -54,7 +52,7 @@ export async function getBarbero(): Promise<BarberoConBarberia | null> {
 
   const { data, error } = await supabase
     .from('Barbero')
-    .select('*, Barberia(nombre, hora_apertura, hora_cierre, dias_habiles)')
+    .select('id, nombre, dias_habiles, hora_apertura, hora_cierre, Barberia(nombre)')
     .eq('users_id', session.user.id)
     .maybeSingle();
 
@@ -63,14 +61,22 @@ export async function getBarbero(): Promise<BarberoConBarberia | null> {
       signOutSilently();
       return null;
     }
-    throw new Error('No se pudo cargar tu perfil.');
+    throw new ServiceError('No se pudo cargar tu perfil.', {
+      code: error.code,
+      cause: error,
+    });
   }
 
   if (data) {
-    setBarbero(data as BarberoConBarberia);
+    const normalized = {
+      ...data,
+      Barberia: Array.isArray(data.Barberia) ? (data.Barberia[0] ?? null) : data.Barberia,
+    };
+    setBarbero(normalized as BarberoConBarberia);
+    return normalized as BarberoConBarberia;
   }
 
-  return data as BarberoConBarberia | null;
+  return null;
 }
 
 export type HorarioHabitualData = {
@@ -86,7 +92,12 @@ export type HorarioHabitualData = {
 export async function updateHorarioHabitual(data: HorarioHabitualData): Promise<void> {
   const barbero = await getBarbero();
   if (!barbero) {
-    throw new Error('Tu cuenta no está vinculada a ninguna barbería. Contactá al administrador.');
+    throw new ServiceError(
+      'Tu cuenta no está vinculada a ninguna barbería. Contactá al administrador.',
+      {
+        code: 'CUENTA_NO_VINCULADA',
+      },
+    );
   }
 
   const { error } = await supabase
@@ -99,7 +110,10 @@ export async function updateHorarioHabitual(data: HorarioHabitualData): Promise<
     .eq('id', barbero.id);
 
   if (error) {
-    throw new Error('No se pudo guardar tu horario. Intentá de nuevo.');
+    throw new ServiceError('No se pudo guardar tu horario. Intentá de nuevo.', {
+      code: error.code,
+      cause: error,
+    });
   }
 
   const { setBarbero } = useAppStore.getState();

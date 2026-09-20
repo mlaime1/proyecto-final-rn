@@ -48,12 +48,15 @@ export default function NuevoTurnoScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
-  const [occupiedSlots, setOccupiedSlots] = useState<string[]>([]);
+  const [occupiedSlots, setOccupiedSlots] = useState<Set<string>>(new Set());
   const [loadingOccupied, setLoadingOccupied] = useState(false);
   const [occupiedError, setOccupiedError] = useState<string | null>(null);
 
   // Slots generados según apertura/cierre del barbero
-  const timeSlots = generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre);
+  const timeSlots = useMemo(
+    () => generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre),
+    [barbero?.hora_apertura, barbero?.hora_cierre],
+  );
 
   // Solo días futuros: hoy + 14. Los no hábiles se deshabilitan en el strip.
   const diasFuturos = useMemo(() => buildDayRange({ back: 0, forward: 14 }), []);
@@ -123,7 +126,7 @@ export default function NuevoTurnoScreen() {
         setOccupiedSlots(slots);
 
         // Deseleccionar si el turno seleccionado quedó ocupado
-        if (selectedTime && slots.includes(selectedTime)) {
+        if (selectedTime && slots.has(selectedTime)) {
           setSelectedTime(null);
         }
       } catch (err) {
@@ -266,7 +269,7 @@ export default function NuevoTurnoScreen() {
           ) : (
             <View style={styles.timeGrid}>
               {timeSlots.map((time) => {
-                const isOccupied = occupiedSlots.includes(time);
+                const isOccupied = occupiedSlots.has(time);
 
                 const now = new Date();
                 const isToday =

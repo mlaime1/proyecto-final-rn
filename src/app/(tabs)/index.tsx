@@ -13,7 +13,7 @@ const MAX_PROXIMOS_TURNOS = 4;
 
 // Límite de producto: hasta cuántos días atrás puede mirar "Último turno".
 // Un barbero sin turnos no cancelados en esta ventana verá la tarjeta vacía.
-const ULTIMO_TURNO_LOOKBACK_DIAS = 30;
+const ULTIMO_TURNO_LOOKBACK_DIAS = 20;
 
 /* =========================
    Helpers
@@ -226,6 +226,8 @@ export default function Home() {
       const desde = new Date();
       desde.setDate(desde.getDate() - ULTIMO_TURNO_LOOKBACK_DIAS);
 
+      // Secuencial a propósito: getTurnos() también resuelve getBarbero().
+      // Paralelizarlos en cold cache duplicaría el SELECT de Barbero.
       const barbero = await getBarbero();
       const turnosData = await getTurnos({ desde });
 

@@ -135,9 +135,7 @@ export default function TurnoDetalleScreen() {
     try {
       setModificarModalVisible(false);
       setUpdating(true);
-      await updateTurno(turnoId, data);
-
-      const updated = await getTurnoById(turnoId);
+      const updated = await updateTurno(turnoId, data);
       setTurno(updated);
 
       setAlertModal({

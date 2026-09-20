@@ -70,7 +70,10 @@ export function isDiaHabil(date: Date, diasHabiles?: number[] | null): boolean {
  * - turnos confirmados (inicio + duracion_minutos snapshot)
  * - bloqueos horarios (hora_inicio/hora_fin; ambos null = día completo)
  */
-export function computeOccupiedSlots(turnos: TurnoPorDia[], bloqueos: BloqueoHorario[]): string[] {
+export function computeOccupiedSlots(
+  turnos: TurnoPorDia[],
+  bloqueos: BloqueoHorario[],
+): Set<string> {
   const occupied = new Set<string>();
 
   turnos.forEach((t) => {
@@ -100,5 +103,5 @@ export function computeOccupiedSlots(turnos: TurnoPorDia[], bloqueos: BloqueoHor
     }
   });
 
-  return Array.from(occupied);
+  return occupied;
 }

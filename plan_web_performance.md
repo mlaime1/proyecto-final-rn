@@ -58,7 +58,7 @@ Esta es la versión que hay que leer cuando queda poco tiempo. Los hallazgos de 
 1. **Fase 0 — línea base, profiling y guion de demo.** Corta. Sin ella no se sabe si la lentitud viene de la carga, de los datos o del render (ver Fase 0 y C2).
 2. **Fase 1 — desbloquear web (H1, H2, H3).** ✅ **Ejecutada 2026-09-20:** alertas visibles, Home que refresca al enfocar y botón de WhatsApp implementado. **Sin esto no hay demo.**
 3. **H4 — una sola familia de iconos.** ✅ **Ejecutado:** import directo de `Ionicons` en los 12 sitios. Eliminó 3.687.116 B de fuentes del build (−90,4%) y 133.231 B del gzip del entry (−26,2%), con riesgo bajo.
-4. **Fase 3 parcial — H6 + H10 (caché de `Barbero` y `Servicio[]`).** Es lo que baja las requests visibles de la demo. No arrancar H7/H8/H9/H12/H13/H14 hasta cerrar esto.
+4. **Fase 3 — H6-H14.** ✅ H6-H10 reducen las requests visibles; ✅ H11-H14 endurecen errores, waterfalls, refetch y disponibilidad. La Fase 3 queda cerrada, pendiente solo del smoke test.
 5. **`typecheck` de una línea** (`"typecheck": "tsc --noEmit"`): se puede colar temprano porque es barato.
 
 **Fuera de la ruta crítica (después de la demo):** CI y workflow, lint de hooks (`exhaustive-deps`), flags estrictos de `tsconfig`, H5 (code splitting), H11b, la Fase 4 de render (salvo la excepción consciente de H26 y el ancho de login), la Fase 6 de higiene y todo el bucket SE DESCARTA. **El alcance de la demo son TODOS los flujos existentes, así que no hay flujos que ocultar: toda pantalla del guion tiene que funcionar.** Lo descartado es pulido, no funcionalidad; si algo rompe un flujo, no se descarta, se arregla.
@@ -504,8 +504,8 @@ Ordenar por impacto: primero la caché (H6/H10), después los límites de query 
 2. **H7 — acotar `getTurnos()` (SOBREVIVE) — ✅ IMPLEMENTADO.**
    - `getTurnos()` acepta `opts?: { desde?: Date; hasta?: Date; limit?: number }` y aplica `.gte/.lte/.limit`. Reusa **`normalizeDateBounds`**, que emite el string local-naive correcto (`- tzOffset` + `.slice(0,-1)`). **Nada de ISO UTC**: en Argentina (UTC−3) eso habría corrido la ventana un día.
    - **Agenda:** pasa la ventana completa de la tira — `[dias[0], dias[último]]` de `buildDayRange()` = **hoy−5 … hoy+10** (16 días). La agenda filtra por día en memoria sobre ese conjunto acotado, así que la ventana tiene que cubrir **toda** la tira, no un día.
-   - **Home:** pasa solo un límite inferior y **mantiene UNA sola query** (respetando el criterio 5.2 de ≤ 3 requests). Se acota a `ULTIMO_TURNO_LOOKBACK_DIAS = 30`.
-   - ⚠️ **Cambio de producto a confirmar:** si un barbero no tiene turnos no cancelados en los últimos 30 días, la tarjeta **"Último turno" ahora aparece vacía** donde antes mostraba el más reciente de todo el historial. Es deliberado y está en una constante comentada, pero es visible en demo. Si no se acepta, hay que cambiar la constante o el criterio.
+   - **Home:** pasa solo un límite inferior y **mantiene UNA sola query** (respetando el criterio 5.2 de ≤ 3 requests). Se acota a `ULTIMO_TURNO_LOOKBACK_DIAS = 20`.
+   - ⚠️ **Cambio de producto confirmado por el dueño:** si un barbero no tiene turnos no cancelados en los últimos 20 días, la tarjeta **"Último turno" ahora aparece vacía** donde antes mostraba el más reciente de todo el historial. Es deliberado y está en una constante comentada.
    - Cumple el objetivo: ya no se ordena el historial completo en memoria, y la carga deja de crecer sin límite con las reservas.
 3. **H8 — eliminar doble fetch de agenda (SOBREVIVE) — ✅ IMPLEMENTADO (con un desvío deliberado).**
    - Se **borró el `useEffect` de montaje** de `src/app/(tabs)/turnos/index.tsx`; `useFocusEffect` cubre el primer montaje. Verificado por grep: solo queda el efecto de foco.
@@ -515,15 +515,13 @@ Ordenar por impacto: primero la caché (H6/H10), después los límites de query 
    - Se agregó el patrón `mounted` (por ejecución del efecto) en los efectos de `nuevo.tsx` y `ModificarTurnoModal.tsx` que cargan disponibilidad. **El guard de race funciona a través de `mounted`:** cuando `selectedDate` cambia, React corre el cleanup anterior (`mounted = false`) antes de arrancar el nuevo efecto, así que la respuesta vieja se descarta sola. Verificado por un revisor independiente.
    - **Código muerto eliminado (SUGGESTION):** se había agregado además un token por fecha (`requestDateKey`). **Es inefectivo:** dentro del closure del efecto, `selectedDate` es la misma referencia congelada de la que se calculó `requestDateKey`, así que `dateKey(selectedDate) !== requestDateKey` es **siempre falso** y el chequeo nunca se dispara. Se eliminó junto con los imports de `dateKey` que había introducido, para no dejar una falsa sensación de protección. Se dejó un comentario explicando qué protege realmente.
    - ⚠️ **`limit` quedó sin consumidores.** La firma lo soporta pero ningún llamador lo usa. Es API especulativa; si no se va a necesitar, conviene quitarlo.
-5. **H11 — errores (H11a SOBREVIVE / H11b SE DESCARTA).**
-   - H11a: distinguir el error de auth de "cuenta no vinculada" y no reemplazar errores reales de Supabase por strings genéricos (`barbero.service.ts:21`, `turnos.service.ts`).
-   - H11b: el surfacing en pantallas que se reescriben NO se hace ahora; la UI nueva nace con el patrón correcto de `turnos/index.tsx:55-57`.
-6. **H12 — paralelizar (SOBREVIVE).** `Promise.all` en `(tabs)/index.tsx:226-227`, en `updateTurno` y en `createAppointment`.
-7. **H13 + H14 (SOBREVIVE).** Usar la fila devuelta por `updateTurno`; reemplazar `SELECT *`; devolver `Set<string>` desde `computeOccupiedSlots` y actualizar los 2 consumidores.
+5. **H11 — errores (H11a SOBREVIVE / H11b SE DESCARTA) — ✅ H11a IMPLEMENTADO.** `ServiceError` conserva `message`, `code` y `cause` sin exponer el error crudo a la UI; cuenta no vinculada sigue siendo `null`, auth fuerza `SIGNED_OUT`, y H11b visual queda para la UI nueva.
+6. **H12 — paralelizar (SOBREVIVE, parcial) — ✅ IMPLEMENTADO.** `updateTurno` paraleliza las lecturas independientes de servicio y turno actual. **Home queda secuencial a propósito:** `getTurnos()` también resuelve `getBarbero()`, así que un `Promise.all` en cold cache duplicaría el SELECT de `Barbero`; `createAppointment` permanece serial porque necesita la duración antes de calcular solapes.
+7. **H13 + H14 (SOBREVIVE) — ✅ IMPLEMENTADOS.** `updateTurno` devuelve relaciones y `[id].tsx` evita el refetch; `getBarbero`/`getTurnoById` ya no usan `SELECT *`; `computeOccupiedSlots` devuelve `Set<string>`, consumidores usan `.has()` y slots se memoizan.
 
 **Hecho cuando:** el primer render de Home hace ≤ 3 requests (sesión local + 1 SELECT de `Barbero` + 1 query de `Turno`), `getBarbero()` no repite red dentro de la sesión, la agenda monta con 1 sola consulta de turnos, y tocar días rápido nunca muestra slots del día equivocado.
 
-**Estado de Fase 3 al 2026-09-20:** ✅ **H6, H7, H8, H9 y H10 implementados.** Criterios duros: Home hace **1 query de `Turno`** acotada a 30 días + 1 `Barbero` (y 0 red en llamadas siguientes por la caché) → cumple ≤ 3; la agenda monta con **1 sola consulta** (el doble fetch se eliminó) acotada a la ventana de 16 días de la tira; el race de días quedó cubierto por el patrón `mounted`. Gates: `npx tsc --noEmit` 0 errores · `npm run lint` 0 errores / 9 warnings · `npm run build:web` exit 0 (1 `.ttf` / 389.724 B, sin regresión de bundle). **Pendiente:** confirmar el cambio de producto de los 30 días, y el smoke test en navegador. **El conteo de requests sigue siendo análisis estático, no medición.**
+**Estado de Fase 3 al 2026-09-20:** ✅ **H6-H14 implementados en la ruta activa.** Criterios duros: Home hace **1 query de `Turno`** acotada a 20 días + 1 `Barbero` (y 0 red en llamadas siguientes por la caché) → cumple ≤ 3; la agenda monta con **1 sola consulta** acotada a la ventana de 16 días; el race de días queda cubierto por `mounted`; los errores de servicio conservan código/causa; `updateTurno` evita refetch y la disponibilidad usa `Set.has()`. Gates: `npx tsc --noEmit` 0 errores · `npm run lint` 0 errores / 9 warnings · `npm run build:web` exit 0 (1 `.ttf` / 389.724 B). **Pendiente:** smoke test en navegador. **El conteo de requests sigue siendo análisis estático, no medición.**
 
 ### Fase 4 — Render (H24-H28) (pendiente, mayormente SE DESCARTA)
 
@@ -649,7 +647,7 @@ Puntos que NO deben asumirse: hay que probarlos en el dispositivo o en el navega
 2. **Fase 1** — desbloquear web (H1, H2, H3). **Ejecutar sin interrupción.**
 3. **H4** — una sola familia de iconos (import directo de `Ionicons`).
 4. **Fase 3 parcial** — solo H6/H10 (caché y barbero), que es lo que reduce las requests visibles.
-5. **Resto de Fase 3** — H7, H8, H9, H11a, H12, H13, H14.
+5. **Fase 3 completa** — H6-H14. Falta únicamente el smoke test manual en navegador.
 6. **`typecheck` de una línea** — `"typecheck": "tsc --noEmit"`; se puede colar temprano porque es barato.
 7. **Fase 6** — higiene (H20, H21, H23, H30a).
 8. **Fase 2 (H5)** — code splitting, solo tras medir el artefacto desplegado y fuera de la ruta crítica.

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -64,10 +64,13 @@ export default function ModificarTurnoModal({
 
   const [showServiceDropdown, setShowServiceDropdown] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [occupiedSlots, setOccupiedSlots] = useState<string[]>([]);
+  const [occupiedSlots, setOccupiedSlots] = useState<Set<string>>(new Set());
 
   // Slots generados según apertura/cierre del barbero
-  const timeSlots = generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre);
+  const timeSlots = useMemo(
+    () => generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre),
+    [barbero?.hora_apertura, barbero?.hora_cierre],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -111,7 +114,7 @@ export default function ModificarTurnoModal({
       if (mounted) {
         // Reset state on close
         setSelectedTime(null);
-        setOccupiedSlots([]);
+        setOccupiedSlots(new Set());
       }
     }
 
@@ -142,7 +145,7 @@ export default function ModificarTurnoModal({
         setOccupiedSlots(slots);
 
         // Si no estamos inicializando con el turno viejo y el seleccionado se ocupó
-        if (selectedTime && slots.includes(selectedTime) && turno?.inicio) {
+        if (selectedTime && slots.has(selectedTime) && turno?.inicio) {
           const oldTimeH = new Date(turno.inicio).getHours().toString().padStart(2, '0');
           const oldTimeM = new Date(turno.inicio).getMinutes().toString().padStart(2, '0');
           if (selectedTime !== `${oldTimeH}:${oldTimeM}`) {
@@ -307,7 +310,7 @@ export default function ModificarTurnoModal({
               <Text style={styles.label}>Horario</Text>
               <View style={styles.timeGrid}>
                 {timeSlots.map((time) => {
-                  const isOccupied = occupiedSlots.includes(time);
+                  const isOccupied = occupiedSlots.has(time);
 
                   const now = new Date();
                   const isToday =

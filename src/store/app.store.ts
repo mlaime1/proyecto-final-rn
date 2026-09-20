@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { Database } from '@/types/database.types';
 
-export type CachedBarbero = Database['public']['Tables']['Barbero']['Row'] & {
-  Barberia: Pick<
-    Database['public']['Tables']['Barberia']['Row'],
-    'nombre' | 'hora_apertura' | 'hora_cierre' | 'dias_habiles'
-  > | null;
+export type CachedBarbero = Pick<
+  Database['public']['Tables']['Barbero']['Row'],
+  'id' | 'nombre' | 'dias_habiles' | 'hora_apertura' | 'hora_cierre'
+> & {
+  Barberia: Pick<Database['public']['Tables']['Barberia']['Row'], 'nombre'> | null;
 };
 
 export type CachedServicio = Database['public']['Tables']['Servicio']['Row'];

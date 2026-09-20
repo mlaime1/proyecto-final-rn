@@ -6,6 +6,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, radius } from './theme';
 
 const DIAS_COMPLETOS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -46,7 +47,14 @@ export default function DaySelectField({ maxDays = 10, selected, onSelect }: Pro
   const dias = useMemo(() => buildProximosDias(maxDays), [maxDays]);
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, selected && styles.wrapSelected]}>
+      <View pointerEvents="none" style={styles.iconWrap}>
+        <Ionicons
+          name="calendar-outline"
+          size={19}
+          color={selected ? colors.primary : colors.inkSoft}
+        />
+      </View>
       <Picker
         selectedValue={selected ?? PLACEHOLDER}
         onValueChange={(value) => {
@@ -74,13 +82,33 @@ export default function DaySelectField({ maxDays = 10, selected, onSelect }: Pro
 
 const styles = StyleSheet.create({
   wrap: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
     backgroundColor: colors.white,
     overflow: 'hidden',
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  wrapSelected: {
+    borderColor: colors.primaryLine,
+    backgroundColor: colors.primarySoft,
+  },
+  iconWrap: {
+    width: 42,
+    alignItems: 'center',
   },
   picker: {
+    flex: 1,
+    height: 54,
     color: colors.ink,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

@@ -156,7 +156,10 @@ export default function ExcepcionesScreen() {
     : false;
 
   const bloqueoDiaCompletoExistente = existentes.find((b) => b.horaInicio === null);
-  const parcialesExistentes = existentes.filter((b) => b.horaInicio !== null);
+  const parcialesExistentes = useMemo(
+    () => existentes.filter((b) => b.horaInicio !== null),
+    [existentes],
+  );
   const slotsExistentesSet = useMemo(
     () => slotsDeRangos(parcialesExistentes),
     [parcialesExistentes],

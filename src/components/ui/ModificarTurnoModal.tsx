@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { getServicios, getTurnosPorDia, type Servicio } from '@/services/turnos.service';
 import { getBarbero, type BarberoConBarberia } from '@/services/barbero.service';
 import { getBloqueosDelDia } from '@/services/bloqueos.service';

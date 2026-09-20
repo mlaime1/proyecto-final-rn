@@ -28,7 +28,7 @@ Y dos problemas de performance medidos sobre el export real:
 
 | # | Problema | Medición |
 |---|---|---|
-| H4 | 19 fuentes de iconos descargadas, solo se usa `Ionicons` | 4.076.840 B en fuentes; desperdicio ~3.5 MB (95%) |
+| H4 | 19 fuentes de iconos en el build, solo se usa `Ionicons` | 4.076.840 B en fuentes. **✅ RESUELTO en Fase 2: quedó 1 fuente / 389.724 B (−90,4%)** |
 | H5 | Un único chunk JS, sin code splitting | 1.831.380 B raw / 508.210 B gzip; costo real por la red ~508.864 B (~496 KB) |
 
 El resto de los hallazgos (H6-H33) son mejoras reales de capa de datos, render, gates de calidad, higiene y contrato de datos, pero **ninguna es más urgente que H1-H3**.
@@ -57,7 +57,7 @@ Esta es la versión que hay que leer cuando queda poco tiempo. Los hallazgos de 
 
 1. **Fase 0 — línea base, profiling y guion de demo.** Corta. Sin ella no se sabe si la lentitud viene de la carga, de los datos o del render (ver Fase 0 y C2).
 2. **Fase 1 — desbloquear web (H1, H2, H3).** ✅ **Ejecutada 2026-09-20:** alertas visibles, Home que refresca al enfocar y botón de WhatsApp implementado. **Sin esto no hay demo.**
-3. **H4 — una sola familia de iconos.** Import directo de `Ionicons` en los 12 sitios. Elimina ~3.5 MB de fuentes con riesgo bajo.
+3. **H4 — una sola familia de iconos.** ✅ **Ejecutado:** import directo de `Ionicons` en los 12 sitios. Eliminó 3.687.116 B de fuentes del build (−90,4%) y 133.231 B del gzip del entry (−26,2%), con riesgo bajo.
 4. **Fase 3 parcial — H6 + H10 (caché de `Barbero` y `Servicio[]`).** Es lo que baja las requests visibles de la demo. No arrancar H7/H8/H9/H12/H13/H14 hasta cerrar esto.
 5. **`typecheck` de una línea** (`"typecheck": "tsc --noEmit"`): se puede colar temprano porque es barato.
 
@@ -144,6 +144,23 @@ Se usan ~20-25 nombres de iconos distintos (`chevron-forward`, `calendar-outline
 2. Migrar los ~20 iconos a SVG inline (lucide-react / react-icons) y eliminar la fuente por completo — mejor para la UI nueva, pero es trabajo de la migración.
 
 **Recomendación:** opción 1 ahora (SOBREVIVE: es config de build/imports), y dejar la opción 2 como decisión de la UI nueva. No migrar a SVG bajo la presión de la entrega.
+
+**✅ RESUELTO — Opción 1 aplicada (2026-09-20, Fase 2).** Los 12 imports migrados a `import Ionicons from '@expo/vector-icons/Ionicons'`. Medido sobre el `dist/` regenerado:
+
+| Métrica | Antes | Después | Δ |
+|---|---|---|---|
+| `.ttf` en el export | 19 | **1** | −18 |
+| Bytes de fuentes | 4.076.840 | **389.724** | **−3.687.116 (−90,4%)** |
+| JS entry raw | 1.834.499 | **1.406.740** | −427.759 (−23,3%) |
+| JS entry gzip (−6) | 508.210 | **374.979** | −133.231 (−26,2%) |
+| `dist/` total | ~5.947.000 | **1.832.500** | ≈ −4.114.500 (−69,2%) |
+| Chunks JS | 1 | 1 | 0 (H5 intacto) |
+
+**Hallazgo adicional (no anticipado):** el barrel no solo arrastraba las fuentes — también **empaquetaba el glyphMap y los metadatos de cada familia dentro del JS**. Por eso el entry crudo cayó 23% *además* del ahorro de fuentes, y por eso el "piso" estimado en 5.1 quedó invalidado.
+
+**Verificación del riesgo real (que el build NO prueba):** un import directo podría resolver y sin embargo dejar de registrar la fuente, en cuyo caso los iconos se verían como cajas vacías. Se leyó el módulo: `@expo/vector-icons/build/Ionicons.js` importa el mismo `.ttf`, el mismo `glyphmaps/Ionicons.json` y llama al mismo `createIconSet(glyphMap, 'ionicons', font)`. El `.ttf` referenciado pesa 389.724 B — byte por byte el único que quedó en `dist/`. **La carga de la fuente sigue intacta.** Lo que sigue sin probarse es el render visual en navegador (requiere el smoke test).
+
+**Actualización de la incertidumbre de Fase 0:** la pregunta abierta era si el navegador DESCARGABA las 19 fuentes o solo la usada. El export ahora emite **exactamente 1 fuente, la que el código referencia**, así que el desperdicio del lado del BUILD quedó eliminado y la duda quedó acotada: el peor caso de descarga pasa de ≤ 4.076.840 B a ≤ 389.724 B (el mejor sigue siendo 0). **El conteo real de descargas por red sigue sin medirse** — requiere navegador con DevTools. **No reportar "3,5 MB ahorrados por red" como si estuviera medido.**
 
 ### H5 — Un solo chunk JS, sin code splitting (MEDIO — SOBREVIVE, fuera de la ruta crítica)
 
@@ -420,7 +437,7 @@ Sin medición previa ninguna mejora es demostrable. Esta fase es corta, habilita
    - **Costo real sobre la red:** JS gzip + `index.html` gzip = **508.864 B (~496 KB)**. Este es el número que importa para H5, porque es lo que sirve un host estático, no los 1,83 MB raw.
    - Se verificó además que las env de Supabase quedan inlineadas en el bundle y que **no hay ninguna clave privilegiada filtrada** (`service_role` no aparece).
 
-   **Precisión pendiente sobre H4 (no confirmado).** Se midió que las 19 fuentes **están en el build** (4.076.840 B en disco). Lo que **NO está confirmado** es si el navegador **descarga** las 19. Con `expo-font` en web las fuentes se cargan por `loadAsync`, y `index.html` no trae `preload` de fuentes, así que es plausible que solo se descargue la familia realmente usada. **No afirmar que se descargan 3,5 MB hasta verlo en el panel Network.** La forma más barata de resolverlo es medirlo al aplicar H4: si al pasar al import directo el conteo de `.ttf` en el export cae de 19 a 1, el barrel era la causa y el desperdicio de build es real; el ahorro de red se confirma en la misma corrida.
+   **H4 quedó CONFIRMADO (2026-09-20, Fase 2).** La predicción era correcta: al pasar al import directo, las `.ttf` del export cayeron de 19 a 1, así que el barrel quedó probado como la causa y el desperdicio de build era real. El ahorro de **BUILD** está medido (−3.687.116 B de fuentes; el JS además cayó 23% porque el barrel también empaquetaba los glyphMaps). Lo que sigue sin medirse es el **conteo de descargas por red**: el export ya solo emite la fuente que el código referencia, así que el peor caso bajó de ≤ 4.076.840 B a ≤ 389.724 B (el mejor sigue siendo 0), pero nadie observó el panel Network. **No reportar el ahorro de red como medido.**
 7. Ejecutar los gates actuales y guardar la salida:
    - `npx tsc --noEmit`
    - `npm run lint`
@@ -451,20 +468,22 @@ Esta fase sola habilita la demo. No tocar performance antes de terminarla.
 
 **Estado de Fase 1 — 2026-09-20:** implementada y verificada (`npx tsc --noEmit` 0 errores · `npm run lint` 0 errores / 9 warnings · `npm run build:web` exit 0). **El smoke test en navegador sigue PENDIENTE** y es lo único que falta para declararla cerrada: `tsc` y el build prueban que compila y que el bundle es válido, pero NO prueban que el modal se vea ni que el link de WhatsApp abra pestaña. Ver 5.5.
 
-### Fase 2 — Bundle y carga inicial (H4, H5) (pendiente)
+### Fase 2 — Bundle y carga inicial (H4, H5) — H4 ✅ ejecutada 2026-09-20 · H5 diferida por decisión del plan
 
-1. **H4 — una sola familia de iconos (SOBREVIVE).**
-   - Cambiar los 12 imports de barrel por `import Ionicons from '@expo/vector-icons/Ionicons'`.
-   - Archivos: `Card.tsx:4`, `AlertModal.tsx:3`, `ModificarTurnoModal.tsx:11`, `ProfileHeader.tsx:1`, `TurnoHeader.tsx:9`, `perfil/index.tsx:10`, `confirmar.tsx:1`, `nuevo.tsx:1`, `[id].tsx:2`, `(tabs)/index.tsx:2`, `(tabs)/_layout.tsx:1`, `login.tsx:13`.
-   - Si `Card.tsx` se borra primero (Fase 6, H30a), quedan 11.
-2. **H5 — code splitting (SOBREVIVE, fuera de la ruta crítica).**
-   - **Primero medir el artefacto desplegado** (comprimido y por la red). Hasta entonces, no invertir en splitting: el costo real medido es **508.864 B (~496 KB)** de carga inicial, no 1.831.380 B raw.
+1. **H4 — una sola familia de iconos (SOBREVIVE) — ✅ IMPLEMENTADO.**
+   - Los 12 imports de barrel cambiados a `import Ionicons from '@expo/vector-icons/Ionicons'`.
+   - Archivos: `Card.tsx:4`, `AlertModal.tsx:3`, `ModificarTurnoModal.tsx:11`, `ProfileHeader.tsx:1`, `TurnoHeader.tsx:9`, `perfil/index.tsx:10`, `confirmar.tsx:1`, `nuevo.tsx:1`, `[id].tsx:2`, `(tabs)/index.tsx:2`, `(tabs)/_layout.tsx:1`, `login.tsx:13`. Diff verificado: **12 líneas eliminadas y 12 agregadas, ni una más**. `Card.tsx` sigue existiendo, así que son 12 y no 11.
+   - Verificado que **solo `Ionicons` se usa en todo `src/`** (53 usos, cero otras familias), así que descartar el barrel no quita nada.
+2. **H5 — code splitting (SOBREVIVE, fuera de la ruta crítica) — ⬜ NO EJECUTADO, por decisión del plan.**
+   - **Falta medir el artefacto desplegado** (comprimido y por la red). Hasta entonces no se invierte en splitting. Tras H4 el costo real de carga inicial bajó a **375.635 B (~367 KB)**, no 1.831.380 B raw.
    - Si se decide avanzar, evaluar `web.output` (por ejemplo `'static'`) en `app.config.ts:30-32`, teniendo en cuenta el riesgo de pre-render en Node (H5) y que cambiar el modo de output afecta a quien despliega.
    - Verificar si expo-router 6 + Metro ya ofrece splitting por ruta con la configuración actual contra la documentación de Expo para esta versión del SDK; si no, diferir el split fino a la UI nueva.
    - No agregar un bundler nuevo (Vite/Next) bajo la presión de la entrega: eso es la decisión del plan de migración de UI.
-3. Regenerar el export y comparar contra Fase 0.
+3. **Regenerar el export y comparar contra Fase 0 — ✅ HECHO.** Ver la tabla de resultados en H4 y la actualización de 5.1.
 
 **Hecho cuando:** el export contiene 1 sola fuente `.ttf` (Ionicons) o 0, la suma de fuentes es ≤ 389.724 B, y el JS gzip inicial bajó respecto de 508.210 B. Si el splitting no puede lograrse sin reconfigurar el bundler, debe quedar documentado con el motivo y el número alcanzado.
+
+**Resultado (2026-09-20): los tres criterios DUROS se cumplen.** 1 sola fuente `.ttf` (exactamente la de Ionicons) · 389.724 B (exactamente el límite) · JS gzip 508.210 → **374.979 B**. El **objetivo informativo de ≤ 350.000 B NO se alcanzó** (quedó en 374.979 B); cerrar esa brecha requeriría H5 (code splitting), que sigue diferido. H5 queda documentado como no ejecutado, con el motivo: falta la medición del artefacto desplegado. Gates: `npx tsc --noEmit` 0 errores · `npm run lint` 0 errores / 9 warnings · `npm run build:web` exit 0.
 
 ### Fase 3 — Performance de datos (H6-H14) (pendiente)
 
@@ -533,17 +552,17 @@ Los criterios son numéricos y reproducibles. Se comparan contra la línea base 
 
 ### 5.1 Bundle
 
-| Métrica | Baseline medido (re-verificado 2026-09-20) | Criterio de aceptación |
-|---|---|---|
-| Archivos `.ttf` en el export | 19 | **Duro:** 1 (Ionicons) o 0 |
-| Payload de fuentes | 4.076.840 B | **Duro:** ≤ 389.724 B (solo Ionicons) o 0 |
-| **Costo real sobre la red** (JS gzip + `index.html` gzip) | **508.864 B (~496 KB)** | **Duro:** estrictamente menor que 508.864 B |
-| JS entry gzip | 508.210 B | **Duro:** estrictamente menor que 508.210 B; objetivo ≤ 350.000 B |
-| JS entry raw | 1.831.380 B | Informativo: el piso tras H4 es ~2.221.104 B (entry 1.831.380 B + Ionicons 389.724 B) antes de `index.html`/favicon; no es criterio |
-| Chunk gzip más grande | 508.210 B (único chunk) | Informativo: ≤ 300.000 B solo si se logra splitting |
-| `dist/` total | 5.944.256 B | **Blando/informativo** (ver nota) |
+| Métrica | Baseline (Fase 0) | Logrado tras H4 (2026-09-20) | Criterio de aceptación |
+|---|---|---|---|
+| Archivos `.ttf` en el export | 19 | **1** ✅ | **Duro:** 1 (Ionicons) o 0 |
+| Payload de fuentes | 4.076.840 B | **389.724 B** ✅ | **Duro:** ≤ 389.724 B (solo Ionicons) o 0 |
+| **Costo real sobre la red** (JS gzip + `index.html` gzip) | 508.864 B (~496 KB) | **375.635 B (~367 KB)** ✅ | **Duro:** estrictamente menor que 508.864 B |
+| JS entry gzip (−6) | 508.210 B | **374.979 B** ✅ | **Duro:** < 508.210 B · **objetivo ≤ 350.000 B: NO alcanzado** (requiere H5) |
+| JS entry raw | 1.831.380 B | **1.406.740 B** | Informativo: no es criterio |
+| Chunk gzip más grande | 508.210 B (único chunk) | **374.979 B** (único chunk) | Informativo: ≤ 300.000 B solo si se logra splitting |
+| `dist/` total | 5.944.256 B | **1.832.500 B** | **Blando/informativo** (ver nota) |
 
-**Nota sobre el total de `dist/`:** el criterio anterior (`≤ 1.500.000 B`) es INALCANZABLE con un cambio de imports. El piso real es ~2.221.104 B, porque el entry JS raw solo ya pesa 1.831.380 B e Ionicons 389.724 B, antes de `index.html` y favicon. Además, los bytes raw de `dist/` están dominados por el JS sin comprimir y las fuentes; lo que se sirve por la red es el artefacto comprimido — medido: **508.864 B (~496 KB)**. Por eso el total queda como objetivo informativo y los criterios DUROS son el payload de fuentes y el gzip del entry.
+**Nota sobre el total de `dist/`:** el criterio histórico (`≤ 1.500.000 B`) sigue sin alcanzarse (medido **1.832.500 B** tras H4), pero la estimación previa del "piso" (**~2.221.104 B**) quedó **INVALIDADA por la medición**: esa cuenta asumía que el JS del barrel se mantenía, y no es así — el barrel también empaquetaba el glyphMap y los metadatos de cada familia en el JS. Por eso el entry raw cayó de 1.831.380 a 1.406.740 B, muy por debajo del supuesto piso. Lo que se sirve por la red es el artefacto comprimido — medido: **375.635 B (~367 KB)**. Los criterios DUROS son el payload de fuentes y el gzip del entry.
 
 Comandos: `du -b`, `find dist -name '*.ttf' | wc -l`, `gzip -c <entry> | wc -c`, `du -sb dist`. Los objetivos informativos de chunk se revisan tras la medición del artefacto desplegado en Fase 0 si el splitting no es viable sin cambiar el bundler.
 
@@ -624,7 +643,7 @@ Puntos que NO deben asumirse: hay que probarlos en el dispositivo o en el navega
 9. **Fase 5** — gates (H15-H19, H22): CI y lint de hooks van DESPUÉS de la performance, como `warn`/postergados.
 10. **Fase 4** — solo la excepción consciente de H26; el resto se descarta.
 
-**Justificación del reorden:** el orden mínimo para entregar es **Fase 1 → H4 (iconos) → Fase 3 parcial (solo H6/H10 — caché y barbero)**; recién después el resto. Los gates se mueven DESPUÉS de la performance porque un cliente que espera no ve un `typecheck` ni un CI: ve si la pantalla carga y responde. El script `typecheck` de una línea es tan barato que se puede colar temprano, pero el CI y el trabajo del plugin de lint NO pertenecen a la ruta crítica de la demo. H4 va antes que el resto de la performance porque elimina ~3.5 MB de fuentes con riesgo bajo y es visible. Y el total de `dist/` no ordena nada: mandan el gzip del entry y el payload de fuentes.
+**Justificación del reorden:** el orden mínimo para entregar es **Fase 1 → H4 (iconos) → Fase 3 parcial (solo H6/H10 — caché y barbero)**; recién después el resto. Los gates se mueven DESPUÉS de la performance porque un cliente que espera no ve un `typecheck` ni un CI: ve si la pantalla carga y responde. El script `typecheck` de una línea es tan barato que se puede colar temprano, pero el CI y el trabajo del plugin de lint NO pertenecen a la ruta crítica de la demo. H4 va antes que el resto de la performance porque elimina ~3,5 MB de fuentes del build con riesgo bajo y es visible (ejecutado 2026-09-20: −3.687.116 B de fuentes y −133.231 B de gzip del entry). Y el total de `dist/` no ordena nada: mandan el gzip del entry y el payload de fuentes.
 
 ---
 
@@ -636,7 +655,7 @@ La app se declara lista para entregar en web solo cuando:
 - la Home refleja crear y cancelar un turno sin recarga manual;
 - no queda ningún botón visible sin acción;
 - la sesión expirada SIGUE terminando en `/login` después de H6, no solo antes (ver H6) — y deja de mostrarse como "cuenta no vinculada" (H11a);
-- el export web contiene una sola familia de fuentes (o ninguna): payload de fuentes ≤ 389.724 B o 0, y el costo real de carga inicial por la red estrictamente menor que 508.864 B medidos (objetivo: gzip del entry ≤ 350.000 B);
+- el export web contiene una sola familia de fuentes (o ninguna): payload de fuentes ≤ 389.724 B o 0 — **✅ cumplido: 1 fuente, 389.724 B exactos** —, y el costo real de carga inicial por la red estrictamente menor que 508.864 B medidos — **✅ cumplido: 375.635 B** (objetivo: gzip del entry ≤ 350.000 B → **no alcanzado**, quedó en 374.979 B; requiere H5);
 - el primer render de Home hace ≤ 3 requests de datos y `getBarbero()` no repite red dentro de la sesión;
 - la Home muestra datos reales por debajo del umbral de tiempo percibido fijado en 5.3, en WebKit con perfil capado;
 - la disponibilidad por día nunca muestra datos de otro día bajo taps rápidos;

@@ -5,6 +5,7 @@ import { createAppointment, type OrigenTurno } from '@/services/turnos.service';
 import TurnoHeader from '@/components/turnos/TurnoHeader';
 import { colors, radius } from '@/components/turnos/theme';
 import { showAlert } from '@/lib/alert';
+import { normalizarCelularAR } from '@/lib/telefono';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -80,9 +81,10 @@ export default function ConfirmarTurnoScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const telefonoLimpio = telefono.replace(/\D/g, '');
-  // Telefono es opcional: si se ingresa, debe tener 8-15 digitos; vacio es valido
-  const telefonoValid =
-    telefonoLimpio.length === 0 || (telefonoLimpio.length >= 8 && telefonoLimpio.length <= 15);
+  // Teléfono opcional: vacío es válido. Si se carga, tiene que ser un celular
+  // argentino normalizable — admite el pegado directo desde WhatsApp.
+  const telefonoCanonico = telefonoLimpio.length === 0 ? null : normalizarCelularAR(telefono);
+  const telefonoValid = telefonoLimpio.length === 0 || telefonoCanonico !== null;
   const canReserve =
     paramsValid && nombre.trim().length >= 2 && apellido.trim().length >= 2 && telefonoValid;
 
@@ -100,7 +102,8 @@ export default function ConfirmarTurnoScreen() {
       await createAppointment({
         nombre: nombre.trim(),
         apellido: apellido.trim(),
-        telefono: telefonoLimpio ? parseInt(telefonoLimpio, 10) : null,
+        telefono: telefonoCanonico,
+        telefono_raw: telefonoLimpio.length === 0 ? null : telefono.trim(),
         servicio_id: serviceId,
         inicio: localISOTime,
         origen,
@@ -216,7 +219,7 @@ export default function ConfirmarTurnoScreen() {
             placeholderTextColor={colors.inkSoft}
             value={telefono}
             onChangeText={setTelefono}
-            keyboardType="phone-pad"
+            inputMode="tel"
             returnKeyType="done"
           />
         </View>

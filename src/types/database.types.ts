@@ -153,6 +153,8 @@ export type Database = {
           nombre: string;
           notas: string | null;
           telefono: number | null;
+          telefono_normalizado: string | null;
+          telefono_raw: string | null;
           ultima_visita: string | null;
         };
         Insert: {
@@ -163,6 +165,8 @@ export type Database = {
           nombre: string;
           notas?: string | null;
           telefono?: number | null;
+          telefono_normalizado?: string | null;
+          telefono_raw?: string | null;
           ultima_visita?: string | null;
         };
         Update: {
@@ -173,6 +177,8 @@ export type Database = {
           nombre?: string;
           notas?: string | null;
           telefono?: number | null;
+          telefono_normalizado?: string | null;
+          telefono_raw?: string | null;
           ultima_visita?: string | null;
         };
         Relationships: [
@@ -328,7 +334,8 @@ export type Database = {
           p_nombre: string;
           p_origen: string;
           p_servicio_id: number;
-          p_telefono?: number;
+          p_telefono?: string;
+          p_telefono_raw?: string;
         };
         Returns: {
           barbero_id: number;

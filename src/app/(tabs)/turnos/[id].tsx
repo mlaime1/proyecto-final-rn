@@ -185,7 +185,7 @@ export default function TurnoDetalleScreen() {
   const end = new Date(start.getTime() + duracionMs);
 
   const handleContactarWhatsapp = () => {
-    const digits = String(turno.Cliente?.telefono ?? '').replace(/\D/g, '');
+    const digits = (turno.Cliente?.telefono_normalizado ?? '').replace(/\D/g, '');
     if (!digits) {
       showAlert(
         'Sin teléfono',

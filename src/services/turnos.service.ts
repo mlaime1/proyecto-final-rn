@@ -250,7 +250,7 @@ export async function getTurnoById(id: number) {
       servicio_id,
       estado,
       duracion_minutos,
-      Cliente ( nombre, telefono ),
+      Cliente ( nombre, telefono_normalizado ),
       Servicio ( nombre, precio, duracion )
     `,
     )
@@ -311,7 +311,10 @@ export async function getServicios(): Promise<Servicio[]> {
 export type CreateAppointmentData = {
   nombre: string;
   apellido: string;
-  telefono: number | null;
+  /** Canónico `+549` + 10 dígitos (salida de `normalizarCelularAR`). */
+  telefono: string | null;
+  /** Lo que se tipeó o pegó, sin normalizar. Para auditoría. */
+  telefono_raw: string | null;
   servicio_id: number;
   inicio: string;
   origen: OrigenTurno;
@@ -336,6 +339,11 @@ function mapCrearTurnoError(error: { code?: string; message?: string } | null): 
   if (message.includes('DATOS_CLIENTE_INVALIDOS')) {
     return 'Revisá el nombre y el apellido del cliente.';
   }
+  // CHECK `cliente_telefono_formato_chk` (Fase 9). No mapear 23514 a secas:
+  // las Fases 2 también lo usan para errores de relación de tenant.
+  if (message.includes('cliente_telefono_formato_chk')) {
+    return 'Revisá el teléfono: no parece un celular argentino válido.';
+  }
   if (message.includes('SESION_INVALIDA')) {
     return 'Tu sesión expiró. Iniciá sesión nuevamente.';
   }
@@ -343,7 +351,7 @@ function mapCrearTurnoError(error: { code?: string; message?: string } | null): 
 }
 
 export async function createAppointment(data: CreateAppointmentData) {
-  const { nombre, apellido, telefono, servicio_id, inicio, origen } = data;
+  const { nombre, apellido, telefono, telefono_raw, servicio_id, inicio, origen } = data;
   const barbero = await getCurrentBarbero();
 
   // 1. duración del servicio: solo para la pre-verificación de UX.
@@ -394,6 +402,7 @@ export async function createAppointment(data: CreateAppointmentData) {
     p_nombre: nombre,
     p_apellido: apellido,
     p_telefono: telefono,
+    p_telefono_raw: telefono_raw,
   });
 
   if (error || !createdTurno) {
@@ -410,7 +419,7 @@ export async function createAppointment(data: CreateAppointmentData) {
    UPDATE
 ========================= */
 export type TurnoConRelaciones = Turno & {
-  Cliente: { nombre: string; telefono: number | null } | null;
+  Cliente: { nombre: string; telefono_normalizado: string | null } | null;
   Servicio: { nombre: string | null; precio: number | null; duracion: number | null } | null;
 };
 
@@ -515,7 +524,7 @@ export async function updateTurno(
       servicio_id,
       estado,
       duracion_minutos,
-      Cliente ( nombre, telefono ),
+      Cliente ( nombre, telefono_normalizado ),
       Servicio ( nombre, precio, duracion )
     `,
     )

@@ -12,7 +12,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { getServicios, getTurnosPorDia, type Servicio } from '@/services/turnos.service';
 import { getBarbero, type BarberoConBarberia } from '@/services/barbero.service';
 import { getBloqueosDelDia } from '@/services/bloqueos.service';
-import { computeOccupiedSlots, generateTimeSlots, isDiaHabil } from '@/lib/availability';
+import {
+  computeOccupiedSlots,
+  generateTimeSlots,
+  isDiaHabil,
+  resolverHorarioEfectivo,
+} from '@/lib/availability';
 
 const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = [
@@ -66,10 +71,13 @@ export default function ModificarTurnoModal({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [occupiedSlots, setOccupiedSlots] = useState<Set<string>>(new Set());
 
-  // Slots generados según apertura/cierre del barbero
+  // Horario efectivo: el del barbero y, donde falte, el heredado de la barbería
+  const horario = useMemo(() => resolverHorarioEfectivo(barbero, barbero?.Barberia), [barbero]);
+
+  // Slots generados según apertura/cierre efectivos
   const timeSlots = useMemo(
-    () => generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre),
-    [barbero?.hora_apertura, barbero?.hora_cierre],
+    () => generateTimeSlots(horario.hora_apertura, horario.hora_cierre),
+    [horario],
   );
 
   useEffect(() => {
@@ -164,12 +172,12 @@ export default function ModificarTurnoModal({
     };
   }, [selectedDate, visible, turno]);
 
-  // Solo días hábiles del barbero dentro de los próximos 14 días
+  // Solo días hábiles del horario efectivo dentro de los próximos 14 días
   const availableDays: Date[] = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
     d.setDate(new Date().getDate() + i);
     return d;
-  }).filter((day) => isDiaHabil(day, barbero?.dias_habiles));
+  }).filter((day) => isDiaHabil(day, horario.dias_habiles));
 
   const handleSave = () => {
     if (!selectedService || !selectedTime) return;

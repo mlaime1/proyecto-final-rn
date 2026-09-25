@@ -4,7 +4,8 @@
 // y en qué franja horaria general. Mapea 1 a 1 con la tabla `Barbero`
 // (dias_habiles, hora_apertura, hora_cierre).
 
-import React, { useEffect, useState } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -13,8 +14,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { getBarbero, updateHorarioHabitual } from '@/services/barbero.service';
-import { DEFAULT_APERTURA, DEFAULT_CIERRE, toHHMM } from '@/lib/availability';
+import {
+  getBarbero,
+  updateHorarioHabitual,
+  type BarberoConBarberia,
+} from '@/services/barbero.service';
+import {
+  detectarDesajusteConBarberia,
+  resolverHorarioEfectivo,
+  toHHMM,
+  DIAS_SEMANA,
+  type OrigenHorario,
+} from '@/lib/availability';
 import { colors, radius, spacing, type } from '@/components/horario/theme';
 import Screen from '@/components/ui/Screen';
 import ProfileHeader from '@/components/ui/ProfileHeader';
@@ -33,6 +44,8 @@ const DIAS = [
 
 const PASO_MINUTOS = 30;
 
+type BarberiaHorario = NonNullable<BarberoConBarberia['Barberia']>;
+
 function sumarMinutos(hora: string, delta: number): string {
   const [h, m] = hora.split(':').map(Number);
   let total = h * 60 + m + delta;
@@ -42,22 +55,61 @@ function sumarMinutos(hora: string, delta: number): string {
   return `${hh}:${mm}`;
 }
 
+/** "lunes y martes" / "lunes, martes y miércoles" — para nombrar los días del aviso. */
+function enumerarDias(dias: number[]): string {
+  const nombres = dias.map((dia) => DIAS_SEMANA[dia] ?? String(dia));
+  if (nombres.length <= 1) return nombres.join('');
+  return `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
+}
+
+/**
+ * "09:00–20:00" con lo que la barbería tenga efectivamente cargado. Si viene
+ * un solo extremo se muestra ese: preferimos una etiqueta incompleta a imprimir
+ * un "null" en el aviso.
+ */
+function rangoDeBarberia(barberia: BarberiaHorario | null): string {
+  if (!barberia) return '';
+  return [barberia.hora_apertura, barberia.hora_cierre]
+    .filter((hora): hora is string => !!hora)
+    .map(toHHMM)
+    .join('–');
+}
+
+/**
+ * "07:00–12:00" usando solo los extremos que el barbero cargó. El aviso se
+ * dispara por un extremo suelto (por ejemplo, solo la apertura), así que no se
+ * pueden mostrar los dos valores efectivos: el otro vendría heredado y
+ * atribuiría al barbero una hora que no eligió.
+ */
+function rangoPropio(hora_apertura: string, hora_cierre: string): string {
+  return [hora_apertura, hora_cierre].filter((hora) => !!hora).join('–');
+}
+
 export default function HorarioHabitualScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [diasHabiles, setDiasHabiles] = useState<Set<number>>(new Set());
-  const [horaApertura, setHoraApertura] = useState(DEFAULT_APERTURA);
-  const [horaCierre, setHoraCierre] = useState(DEFAULT_CIERRE);
+  const [horaApertura, setHoraApertura] = useState('');
+  const [horaCierre, setHoraCierre] = useState('');
   const [guardado, setGuardado] = useState(false);
+  const [origen, setOrigen] = useState<OrigenHorario>('barbero');
+  const [barberia, setBarberia] = useState<BarberiaHorario | null>(null);
 
   useEffect(() => {
     let mounted = true;
     getBarbero()
       .then((barbero) => {
         if (!mounted || !barbero) return;
-        setDiasHabiles(new Set(barbero.dias_habiles ?? [1, 2, 3, 4, 5]));
-        if (barbero.hora_apertura) setHoraApertura(toHHMM(barbero.hora_apertura));
-        if (barbero.hora_cierre) setHoraCierre(toHHMM(barbero.hora_cierre));
+        // El formulario debe arrancar del horario que la app está usando de
+        // verdad: si el barbero no tiene el propio, hereda el de la barbería.
+        // Sembrarlo con un default local hacía que guardar pisara la herencia
+        // con valores que el barbero nunca eligió.
+        const efectivo = resolverHorarioEfectivo(barbero, barbero.Barberia);
+        setDiasHabiles(new Set(efectivo.dias_habiles ?? []));
+        setHoraApertura(efectivo.hora_apertura);
+        setHoraCierre(efectivo.hora_cierre);
+        setOrigen(efectivo.origen);
+        setBarberia(barbero.Barberia);
       })
       .catch(() => {
         showAlert('Error', 'No se pudo cargar tu horario actual.');
@@ -84,6 +136,28 @@ export default function HorarioHabitualScreen() {
   };
 
   const rangoValido = horaApertura < horaCierre && diasHabiles.size > 0;
+
+  // Aviso informativo contra el techo que impone la barbería. Se recalcula en
+  // cada toggle de día y en cada paso de hora, así que no queda desactualizado
+  // respecto de lo que el barbero está por guardar. Con el rango local inválido
+  // se pasan las horas en null: el helper solo compara lo que el barbero cargó,
+  // y comparar una franja invertida no aportaría nada.
+  const desajuste = useMemo(
+    () =>
+      detectarDesajusteConBarberia(
+        {
+          dias_habiles: Array.from(diasHabiles),
+          hora_apertura: rangoValido ? horaApertura : null,
+          hora_cierre: rangoValido ? horaCierre : null,
+        },
+        barberia,
+      ),
+    [diasHabiles, horaApertura, horaCierre, rangoValido, barberia],
+  );
+  const diasFueraTexto = enumerarDias(desajuste.diasFuera);
+  const rangoBarberia = rangoDeBarberia(barberia);
+  const rangoBarbero = rangoPropio(rangoValido ? horaApertura : '', rangoValido ? horaCierre : '');
+  const mostrarAviso = desajuste.fueraDeHorario || desajuste.diasFuera.length > 0;
 
   const guardar = async () => {
     if (!rangoValido || saving) return;
@@ -118,6 +192,17 @@ export default function HorarioHabitualScreen() {
             Definí los días que trabajás y tu franja horaria general. Los clientes solo van a poder
             reservar dentro de este horario.
           </Text>
+
+          {origen !== 'barbero' && (
+            <View style={styles.heredadoCard}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
+              <Text style={styles.heredadoText}>
+                {origen === 'barberia'
+                  ? 'Estás viendo el horario de tu barbería, porque todavía no cargaste el tuyo. Si guardás, empezás a usar este horario como propio.'
+                  : 'Estás viendo un horario por defecto, porque ni vos ni tu barbería tienen uno cargado. Si guardás, empezás a usar este horario como propio.'}
+              </Text>
+            </View>
+          )}
 
           <Text style={styles.label}>Días que trabajás</Text>
           <View style={styles.diasRow}>
@@ -163,6 +248,26 @@ export default function HorarioHabitualScreen() {
             <Text style={styles.errorText}>
               El horario de cierre debe ser posterior al de apertura.
             </Text>
+          )}
+
+          {mostrarAviso && (
+            <View style={styles.avisoCard}>
+              <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+              <View style={styles.avisoBody}>
+                {desajuste.fueraDeHorario && (
+                  <Text style={styles.avisoText}>
+                    Tu horario ({rangoBarbero}) se extiende fuera del horario de la barbería (
+                    {rangoBarberia}). Las horas fuera de ese rango no se van a poder reservar.
+                  </Text>
+                )}
+                {desajuste.diasFuera.length > 0 && (
+                  <Text style={styles.avisoText}>
+                    Marcaste días que la barbería no abre: {diasFueraTexto}. Esos días no se van a
+                    poder reservar.
+                  </Text>
+                )}
+              </View>
+            </View>
           )}
 
           <TouchableOpacity
@@ -276,6 +381,35 @@ const styles = StyleSheet.create({
   },
 
   errorText: { color: colors.danger, fontSize: 12.5, marginBottom: spacing(4) },
+
+  avisoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing(2.5),
+    backgroundColor: colors.dangerSoft,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    borderRadius: radius.md,
+    paddingVertical: spacing(3),
+    paddingHorizontal: spacing(3),
+    marginBottom: spacing(4),
+  },
+  avisoBody: { flex: 1, gap: spacing(2) },
+  avisoText: { ...type.caption, color: colors.ink, lineHeight: 18 },
+
+  heredadoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing(2.5),
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primaryLine,
+    borderRadius: radius.md,
+    paddingVertical: spacing(3),
+    paddingHorizontal: spacing(3),
+    marginBottom: spacing(6),
+  },
+  heredadoText: { ...type.caption, flex: 1, color: colors.ink, lineHeight: 18 },
 
   btnPrimary: {
     marginTop: spacing(6),

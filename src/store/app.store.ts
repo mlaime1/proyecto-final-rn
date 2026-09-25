@@ -1,11 +1,19 @@
 import { create } from 'zustand';
 import { Database } from '@/types/database.types';
 
+// Horario de la barbería: se trae completo (no solo el nombre) para poder
+// resolver la cascada Barbero → Barberia → default cuando al barbero le
+// falta alguna parte de su propio horario.
+export type CachedBarberiaHorario = Pick<
+  Database['public']['Tables']['Barberia']['Row'],
+  'nombre' | 'dias_habiles' | 'hora_apertura' | 'hora_cierre'
+>;
+
 export type CachedBarbero = Pick<
   Database['public']['Tables']['Barbero']['Row'],
   'id' | 'nombre' | 'dias_habiles' | 'hora_apertura' | 'hora_cierre'
 > & {
-  Barberia: Pick<Database['public']['Tables']['Barberia']['Row'], 'nombre'> | null;
+  Barberia: CachedBarberiaHorario | null;
 };
 
 export type CachedServicio = Database['public']['Tables']['Servicio']['Row'];

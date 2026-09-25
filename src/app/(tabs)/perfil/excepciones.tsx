@@ -28,13 +28,7 @@ import {
   getBloqueosDelDia,
   type BloqueoHorario,
 } from '@/services/bloqueos.service';
-import {
-  DEFAULT_APERTURA,
-  DEFAULT_CIERRE,
-  isDiaHabil,
-  parseFechaLocal,
-  toHHMM,
-} from '@/lib/availability';
+import { isDiaHabil, parseFechaLocal, resolverHorarioEfectivo, toHHMM } from '@/lib/availability';
 import DaySelectField from '@/components/horario/DaySelectField';
 import TimeSlotGrid from '@/components/horario/TimeSlotGrid';
 import { colors, radius, spacing, type } from '@/components/horario/theme';
@@ -148,11 +142,13 @@ export default function ExcepcionesScreen() {
     }
   }, []);
 
-  const horaApertura = barbero?.hora_apertura ? toHHMM(barbero.hora_apertura) : DEFAULT_APERTURA;
-  const horaCierre = barbero?.hora_cierre ? toHHMM(barbero.hora_cierre) : DEFAULT_CIERRE;
+  // Horario efectivo: el del barbero y, donde falte, el heredado de la barbería
+  const horario = useMemo(() => resolverHorarioEfectivo(barbero, barbero?.Barberia), [barbero]);
+  const horaApertura = horario.hora_apertura;
+  const horaCierre = horario.hora_cierre;
 
   const esLaboral = fechaSeleccionada
-    ? isDiaHabil(parseFechaLocal(fechaSeleccionada), barbero?.dias_habiles)
+    ? isDiaHabil(parseFechaLocal(fechaSeleccionada), horario.dias_habiles)
     : false;
 
   const bloqueoDiaCompletoExistente = existentes.find((b) => b.horaInicio === null);

@@ -4,6 +4,7 @@
 // y en qué franja horaria general. Mapea 1 a 1 con la tabla `Barbero`
 // (dias_habiles, hora_apertura, hora_cierre).
 
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { getBarbero, updateHorarioHabitual } from '@/services/barbero.service';
-import { DEFAULT_APERTURA, DEFAULT_CIERRE, toHHMM } from '@/lib/availability';
+import { resolverHorarioEfectivo, type OrigenHorario } from '@/lib/availability';
 import { colors, radius, spacing, type } from '@/components/horario/theme';
 import Screen from '@/components/ui/Screen';
 import ProfileHeader from '@/components/ui/ProfileHeader';
@@ -46,18 +47,25 @@ export default function HorarioHabitualScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [diasHabiles, setDiasHabiles] = useState<Set<number>>(new Set());
-  const [horaApertura, setHoraApertura] = useState(DEFAULT_APERTURA);
-  const [horaCierre, setHoraCierre] = useState(DEFAULT_CIERRE);
+  const [horaApertura, setHoraApertura] = useState('');
+  const [horaCierre, setHoraCierre] = useState('');
   const [guardado, setGuardado] = useState(false);
+  const [origen, setOrigen] = useState<OrigenHorario>('barbero');
 
   useEffect(() => {
     let mounted = true;
     getBarbero()
       .then((barbero) => {
         if (!mounted || !barbero) return;
-        setDiasHabiles(new Set(barbero.dias_habiles ?? [1, 2, 3, 4, 5]));
-        if (barbero.hora_apertura) setHoraApertura(toHHMM(barbero.hora_apertura));
-        if (barbero.hora_cierre) setHoraCierre(toHHMM(barbero.hora_cierre));
+        // El formulario debe arrancar del horario que la app está usando de
+        // verdad: si el barbero no tiene el propio, hereda el de la barbería.
+        // Sembrarlo con un default local hacía que guardar pisara la herencia
+        // con valores que el barbero nunca eligió.
+        const efectivo = resolverHorarioEfectivo(barbero, barbero.Barberia);
+        setDiasHabiles(new Set(efectivo.dias_habiles ?? []));
+        setHoraApertura(efectivo.hora_apertura);
+        setHoraCierre(efectivo.hora_cierre);
+        setOrigen(efectivo.origen);
       })
       .catch(() => {
         showAlert('Error', 'No se pudo cargar tu horario actual.');
@@ -118,6 +126,17 @@ export default function HorarioHabitualScreen() {
             Definí los días que trabajás y tu franja horaria general. Los clientes solo van a poder
             reservar dentro de este horario.
           </Text>
+
+          {origen !== 'barbero' && (
+            <View style={styles.heredadoCard}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
+              <Text style={styles.heredadoText}>
+                {origen === 'barberia'
+                  ? 'Estás viendo el horario de tu barbería, porque todavía no cargaste el tuyo. Si guardás, empezás a usar este horario como propio.'
+                  : 'Estás viendo un horario por defecto, porque ni vos ni tu barbería tienen uno cargado. Si guardás, empezás a usar este horario como propio.'}
+              </Text>
+            </View>
+          )}
 
           <Text style={styles.label}>Días que trabajás</Text>
           <View style={styles.diasRow}>
@@ -276,6 +295,20 @@ const styles = StyleSheet.create({
   },
 
   errorText: { color: colors.danger, fontSize: 12.5, marginBottom: spacing(4) },
+
+  heredadoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing(2.5),
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primaryLine,
+    borderRadius: radius.md,
+    paddingVertical: spacing(3),
+    paddingHorizontal: spacing(3),
+    marginBottom: spacing(6),
+  },
+  heredadoText: { ...type.caption, flex: 1, color: colors.ink, lineHeight: 18 },
 
   btnPrimary: {
     marginTop: spacing(6),

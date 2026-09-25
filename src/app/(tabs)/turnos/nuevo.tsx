@@ -14,7 +14,12 @@ import {
 import { getBarbero, type BarberoConBarberia } from '@/services/barbero.service';
 import { getBloqueosDelDia } from '@/services/bloqueos.service';
 import { getServicios, getTurnosPorDia, type Servicio } from '@/services/turnos.service';
-import { computeOccupiedSlots, generateTimeSlots, isDiaHabil } from '@/lib/availability';
+import {
+  computeOccupiedSlots,
+  generateTimeSlots,
+  isDiaHabil,
+  resolverHorarioEfectivo,
+} from '@/lib/availability';
 import DayStrip, { buildDayRange } from '@/components/turnos/DayStrip';
 import TurnoHeader from '@/components/turnos/TurnoHeader';
 import { colors, radius } from '@/components/turnos/theme';
@@ -52,10 +57,13 @@ export default function NuevoTurnoScreen() {
   const [loadingOccupied, setLoadingOccupied] = useState(false);
   const [occupiedError, setOccupiedError] = useState<string | null>(null);
 
-  // Slots generados según apertura/cierre del barbero
+  // Horario efectivo: el del barbero y, donde falte, el heredado de la barbería
+  const horario = useMemo(() => resolverHorarioEfectivo(barbero, barbero?.Barberia), [barbero]);
+
+  // Slots generados según apertura/cierre efectivos
   const timeSlots = useMemo(
-    () => generateTimeSlots(barbero?.hora_apertura, barbero?.hora_cierre),
-    [barbero?.hora_apertura, barbero?.hora_cierre],
+    () => generateTimeSlots(horario.hora_apertura, horario.hora_cierre),
+    [horario],
   );
 
   // Solo días futuros: hoy + 14. Los no hábiles se deshabilitan en el strip.
@@ -70,13 +78,15 @@ export default function NuevoTurnoScreen() {
         if (!mounted) return;
         setBarbero(data);
 
-        // Si el día seleccionado no es hábil para el barbero, saltar al primero hábil
-        if (data && !isDiaHabil(selectedDate, data.dias_habiles)) {
+        // Si el día seleccionado no es hábil, saltar al primero hábil del
+        // horario efectivo (propio o heredado de la barbería).
+        const efectivo = resolverHorarioEfectivo(data, data?.Barberia);
+        if (data && !isDiaHabil(selectedDate, efectivo.dias_habiles)) {
           const next = Array.from({ length: 15 }, (_, i) => {
             const d = new Date();
             d.setDate(new Date().getDate() + i);
             return d;
-          }).find((d) => isDiaHabil(d, data.dias_habiles));
+          }).find((d) => isDiaHabil(d, efectivo.dias_habiles));
           if (next && mounted) setSelectedDate(next);
         }
       } catch {
@@ -248,7 +258,7 @@ export default function NuevoTurnoScreen() {
               setSelectedDate(day);
               setSelectedTime(null);
             }}
-            isDisabled={(day) => !isDiaHabil(day, barbero?.dias_habiles)}
+            isDisabled={(day) => !isDiaHabil(day, horario.dias_habiles)}
           />
         </View>
 

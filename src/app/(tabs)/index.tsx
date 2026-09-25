@@ -1,10 +1,12 @@
 import Screen from '@/components/ui/Screen';
+import HorarioHeredadoBanner from '@/components/ui/HorarioHeredadoBanner';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getBarbero } from '@/services/barbero.service';
 import { getTurnos, TurnoUI } from '@/services/turnos.service';
+import { resolverHorarioEfectivo, type OrigenHorario } from '@/lib/availability';
 
 /* =========================
    Constants
@@ -220,6 +222,7 @@ export default function Home() {
   const [turnos, setTurnos] = useState<TurnoUI[]>([]);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('Barbero');
+  const [origenHorario, setOrigenHorario] = useState<OrigenHorario | null>(null);
 
   const loadHomeData = useCallback(async () => {
     try {
@@ -236,6 +239,9 @@ export default function Home() {
       if (barbero?.nombre) {
         setUserName(barbero.nombre);
       }
+
+      // Solo se avisa cuando el horario mostrado no es el propio del barbero.
+      setOrigenHorario(barbero ? resolverHorarioEfectivo(barbero, barbero.Barberia).origen : null);
     } catch {
       setTurnos([]);
     } finally {
@@ -272,6 +278,8 @@ export default function Home() {
             </View>
             <Text style={styles.greeting}>Hola, {userName}</Text>
           </View>
+
+          <HorarioHeredadoBanner origen={origenHorario} />
 
           {/* Último turno - no clickeable */}
           <View style={styles.ultimoTurnoSection}>

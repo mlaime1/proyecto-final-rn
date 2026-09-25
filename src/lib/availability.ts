@@ -27,6 +27,96 @@ export function parseFechaLocal(fecha: string): Date {
   return new Date(y, m - 1, d);
 }
 
+/* =========================
+   Horario efectivo
+   Cascada Barbero → Barberia → default (por campo, no todo-o-nada)
+   Única fuente de verdad para "¿qué horario está mostrando la app?".
+   Función pura: no consulta la base ni toca estado.
+   ========================= */
+
+/** De dónde salió el horario efectivo. */
+export type OrigenHorario = 'barbero' | 'barberia' | 'default';
+
+export type HorarioEfectivo = {
+  /** Siempre en formato "HH:MM" (ya recortado con `toHHMM`). */
+  hora_apertura: string;
+  /** Siempre en formato "HH:MM" (ya recortado con `toHHMM`). */
+  hora_cierre: string;
+  /** null = ningún nivel configuró días (ver `isDiaHabil`: todos son hábiles). */
+  dias_habiles: number[] | null;
+  origen: OrigenHorario;
+};
+
+/**
+ * Forma mínima que necesita el resolver. La satisfacen tanto `Barbero` como
+ * `Barberia` (y `CachedBarbero` con su `Barberia` embebida).
+ */
+type FuenteHorario = {
+  hora_apertura?: string | null | undefined;
+  hora_cierre?: string | null | undefined;
+  dias_habiles?: number[] | null | undefined;
+};
+
+type CampoResuelto<T> = { valor: T; origen: OrigenHorario };
+
+/** Un campo de horario: primero el propio del barbero, después el de la barbería. */
+function resolverHora(
+  propio: string | null | undefined,
+  deBarberia: string | null | undefined,
+  porDefecto: string,
+): CampoResuelto<string> {
+  if (propio) return { valor: toHHMM(propio), origen: 'barbero' };
+  if (deBarberia) return { valor: toHHMM(deBarberia), origen: 'barberia' };
+  return { valor: porDefecto, origen: 'default' };
+}
+
+/** null y [] cuentan como "sin configurar", igual que los trata `isDiaHabil`. */
+function resolverDias(
+  propios: number[] | null | undefined,
+  deBarberia: number[] | null | undefined,
+): CampoResuelto<number[] | null> {
+  if (propios && propios.length > 0) return { valor: propios, origen: 'barbero' };
+  if (deBarberia && deBarberia.length > 0) return { valor: deBarberia, origen: 'barberia' };
+  // Sin días configurados en ningún nivel. Se devuelve null a propósito para
+  // conservar el criterio histórico de `isDiaHabil` (todos los días hábiles).
+  return { valor: null, origen: 'default' };
+}
+
+/**
+ * Reduce los tres orígenes de campo a un único `origen` para la interfaz.
+ * Regla ante fuentes mezcladas: 'barbero' solo si los TRES campos salen del
+ * barbero; si no, 'barberia' en cuanto uno venga de la barbería; si no,
+ * 'default'. Así el aviso al usuario aparece ante cualquier horario
+ * incompleto, sin importar qué campo falte.
+ */
+function combinarOrigen(origenes: OrigenHorario[]): OrigenHorario {
+  if (origenes.every((o) => o === 'barbero')) return 'barbero';
+  if (origenes.some((o) => o === 'barberia')) return 'barberia';
+  return 'default';
+}
+
+/**
+ * Resuelve el horario que la app debe usar, resolviendo CADA campo por
+ * separado: si al barbero le falta solo el cierre, la apertura puede venir de
+ * él y el cierre de la barbería. Un barbero con su horario completo no cambia
+ * de comportamiento en absoluto.
+ */
+export function resolverHorarioEfectivo(
+  barbero: FuenteHorario | null | undefined,
+  barberia: FuenteHorario | null | undefined,
+): HorarioEfectivo {
+  const apertura = resolverHora(barbero?.hora_apertura, barberia?.hora_apertura, DEFAULT_APERTURA);
+  const cierre = resolverHora(barbero?.hora_cierre, barberia?.hora_cierre, DEFAULT_CIERRE);
+  const dias = resolverDias(barbero?.dias_habiles, barberia?.dias_habiles);
+
+  return {
+    hora_apertura: apertura.valor,
+    hora_cierre: cierre.valor,
+    dias_habiles: dias.valor,
+    origen: combinarOrigen([apertura.origen, cierre.origen, dias.origen]),
+  };
+}
+
 function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m;

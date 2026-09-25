@@ -52,7 +52,9 @@ export async function getBarbero(): Promise<BarberoConBarberia | null> {
 
   const { data, error } = await supabase
     .from('Barbero')
-    .select('id, nombre, dias_habiles, hora_apertura, hora_cierre, Barberia(nombre)')
+    .select(
+      'id, nombre, dias_habiles, hora_apertura, hora_cierre, Barberia(nombre, hora_apertura, hora_cierre, dias_habiles)',
+    )
     .eq('users_id', session.user.id)
     .maybeSingle();
 

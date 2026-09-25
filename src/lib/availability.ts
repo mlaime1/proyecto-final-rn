@@ -51,7 +51,7 @@ export type HorarioEfectivo = {
  * Forma mínima que necesita el resolver. La satisfacen tanto `Barbero` como
  * `Barberia` (y `CachedBarbero` con su `Barberia` embebida).
  */
-type FuenteHorario = {
+export type FuenteHorario = {
   hora_apertura?: string | null | undefined;
   hora_cierre?: string | null | undefined;
   dias_habiles?: number[] | null | undefined;
@@ -153,6 +153,106 @@ export function generateTimeSlots(apertura?: string | null, cierre?: string | nu
 export function isDiaHabil(date: Date, diasHabiles?: number[] | null): boolean {
   if (!diasHabiles || diasHabiles.length === 0) return true;
   return diasHabiles.includes(date.getDay());
+}
+
+/* =========================
+   Desajuste con el horario de la barbería
+   El horario de la barbería funciona como TECHO: un turno solo puede caer
+   dentro de `barberia.hora_apertura..barberia.hora_cierre` y en un día que
+   esté en el cruce de ambos `dias_habiles`. Por eso avisamos solo cuando el
+   barbero se sale de ese techo, y NUNCA cuando se queda adentro: trabajar
+   menos que la barbería es exactamente la intersección que hay que respetar.
+   Función pura y total: no consulta la base, no toca estado y no lanza.
+   ========================= */
+
+/** Nombres de día en español, en convención JS: 0=Domingo … 6=Sábado. */
+export const DIAS_SEMANA: readonly string[] = [
+  'Domingo',
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado',
+];
+
+export type DesajusteHorario = {
+  /** El barbero se extiende más allá del rango de la barbería (abre antes o cierra después). */
+  fueraDeHorario: boolean;
+  /** Días marcados por el barbero que la barbería no abre, en convención JS. */
+  diasFuera: number[];
+};
+
+/**
+ * Minutos desde medianoche, o `null` si el valor no viene o no es un "HH:MM"
+ * parseable. Devolver `null` en vez de `NaN` deja las comparaciones de abajo
+ * siempre en `false` en lugar de propagar valores inesperados.
+ */
+function minutosSeguros(hhmm: string | null | undefined): number | null {
+  if (!hhmm) return null;
+  const minutos = toMinutes(toHHMM(hhmm));
+  return Number.isFinite(minutos) ? minutos : null;
+}
+
+/** Deja solo los días usable por el índice de `DIAS_SEMANA` (enteros 0–6). */
+function diasUtilizables(dias: number[] | null | undefined): number[] | null {
+  if (!dias) return null;
+  const validos = dias.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+  return Array.from(new Set(validos));
+}
+
+/**
+ * Compara el horario del barbero contra el de su barbería y devuelve en qué se
+ * sale del techo que impone el local. Se usa solo para AVISAR: nunca bloquea un
+ * guardado.
+ *
+ * Contrato cuando la barbería no tiene horario con el que comparar
+ * (`null`, ausente, o `hora_apertura`/`hora_cierre`/`dias_habiles` en `null`):
+ * devuelve `{ fueraDeHorario: false, diasFuera: [] }`. Sin techo configurado
+ * no hay nada contra qué comparar, así que el silencio es la respuesta correcta.
+ *
+ * Cada dimensión se mira por separado y solo se compara lo que el barbero
+ * cargó realmente: si un extremo de hora o la lista de días viene heredado de
+ * la barbería (o del default de la app), es imposible que exceda el techo, y
+ * comparar contra el valor heredado solo generaría falsos positivos. Por eso
+ * NO se usa el `origen` colapsado de `resolverHorarioEfectivo` como filtro:
+ * un `origen: 'barberia'` puede deberse a que solo falten los días, y en ese
+ * caso las horas propias del barbero siguen siendo comparables.
+ */
+export function detectarDesajusteConBarberia(
+  barbero: FuenteHorario | null | undefined,
+  barberia: FuenteHorario | null | undefined,
+): DesajusteHorario {
+  if (!barbero || !barberia) {
+    return { fueraDeHorario: false, diasFuera: [] };
+  }
+
+  // Solo se compara un extremo de hora que el barbero haya cargado: si lo
+  // heredó, ya es el de la barbería y no puede estar por fuera de sí mismo.
+  const aperturaBarbero = minutosSeguros(barbero.hora_apertura);
+  const cierreBarbero = minutosSeguros(barbero.hora_cierre);
+  const aperturaBarberia = minutosSeguros(barberia.hora_apertura);
+  const cierreBarberia = minutosSeguros(barberia.hora_cierre);
+
+  const abreAntesDelLocal =
+    aperturaBarbero !== null && aperturaBarberia !== null && aperturaBarbero < aperturaBarberia;
+  const cierraDespuesDelLocal =
+    cierreBarbero !== null && cierreBarberia !== null && cierreBarbero > cierreBarberia;
+
+  // Días: null/vacío significa "sin configurar" (mismo criterio que `isDiaHabil`),
+  // así que no hay contra qué cruzar y no se reporta nada.
+  const diasBarbero = diasUtilizables(barbero.dias_habiles);
+  const diasBarberia = diasUtilizables(barberia.dias_habiles);
+
+  const diasFuera =
+    diasBarbero && diasBarbero.length > 0 && diasBarberia && diasBarberia.length > 0
+      ? diasBarbero.filter((dia) => !diasBarberia.includes(dia)).sort((a, b) => a - b)
+      : [];
+
+  return {
+    fueraDeHorario: abreAntesDelLocal || cierraDespuesDelLocal,
+    diasFuera,
+  };
 }
 
 /**

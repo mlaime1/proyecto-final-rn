@@ -106,7 +106,7 @@ export default function PerfilScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.menuRow, styles.menuRowLast]}
+            style={styles.menuRow}
             onPress={() => router.push('/(tabs)/perfil/excepciones')}
             activeOpacity={0.7}
             accessibilityRole="button"
@@ -117,6 +117,23 @@ export default function PerfilScreen() {
               <View>
                 <Text style={styles.menuTitle}>Excepciones</Text>
                 <Text style={styles.menuSubtitle}>Bloquear franjas o días puntuales</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuRow, styles.menuRowLast]}
+            onPress={() => router.push('/(tabs)/perfil/cambiar-password')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Cambiar contraseña"
+          >
+            <View style={styles.menuRowLeft}>
+              <Ionicons name="key-outline" size={20} color="#4C1D95" />
+              <View>
+                <Text style={styles.menuTitle}>Cambiar contraseña</Text>
+                <Text style={styles.menuSubtitle}>Actualizá tu clave de acceso</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#94A3B8" />

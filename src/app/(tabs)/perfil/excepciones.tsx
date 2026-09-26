@@ -142,10 +142,12 @@ export default function ExcepcionesScreen() {
     }
   }, []);
 
-  // Horario efectivo: el del barbero y, donde falte, el heredado de la barbería
+  // Horario efectivo: solo el propio del barbero; sin él el estado es
+  // "cerrado" (origen 'cerrado') y no hay grilla de slots.
   const horario = useMemo(() => resolverHorarioEfectivo(barbero, barbero?.Barberia), [barbero]);
-  const horaApertura = horario.hora_apertura;
-  const horaCierre = horario.hora_cierre;
+  const sinHorario = horario.origen === 'cerrado';
+  const horaApertura = horario.hora_apertura ?? '';
+  const horaCierre = horario.hora_cierre ?? '';
 
   const esLaboral = fechaSeleccionada
     ? isDiaHabil(parseFechaLocal(fechaSeleccionada), horario.dias_habiles)
@@ -262,7 +264,16 @@ export default function ExcepcionesScreen() {
               </Text>
             )}
 
-            {fechaSeleccionada && !esLaboral && (
+            {fechaSeleccionada && sinHorario && (
+              <View style={styles.cerradoBox}>
+                <Text style={styles.cerradoTitle}>Sin horario configurado</Text>
+                <Text style={styles.cerradoText}>
+                  Cargá tu horario habitual para poder bloquear franjas.
+                </Text>
+              </View>
+            )}
+
+            {fechaSeleccionada && !sinHorario && !esLaboral && (
               <Text style={styles.warningText}>
                 Ese día no está dentro de tu horario habitual, no hace falta bloquearlo.
               </Text>
@@ -409,6 +420,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     marginTop: spacing(4),
   },
+
+  cerradoBox: {
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primaryLine,
+    borderRadius: radius.sm,
+    padding: spacing(3),
+    marginTop: spacing(4),
+  },
+  cerradoTitle: { ...type.body, fontWeight: '700', color: colors.ink },
+  cerradoText: { ...type.caption, color: colors.inkSoft, marginTop: 2, lineHeight: 20 },
 
   fullDayBlock: {
     borderWidth: 1,

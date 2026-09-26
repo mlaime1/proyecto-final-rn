@@ -1,9 +1,10 @@
 // HorarioHeredadoBanner.tsx
 //
-// Aviso informativo para el barbero que todavía no tiene horario propio
-// configurado: lo que la app está mostrando viene heredado de la barbería
-// (o del default), no de él. No bloquea nada ni se puede cerrar a mano:
-// desaparece solo apenas guarda su horario en Perfil → Horario.
+// Aviso informativo sobre el horario que la app está usando: si el barbero
+// todavía no tiene horario propio (origen 'cerrado', o heredado de la
+// barbería / default en datos viejos), lo invita a configurarlo. No bloquea
+// nada ni se puede cerrar a mano: desaparece solo apenas guarda su horario
+// en Perfil → Horario.
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
@@ -19,12 +20,13 @@ type Props = {
 const MENSAJES: Record<Exclude<OrigenHorario, 'barbero'>, string> = {
   barberia: 'Estás usando el horario de la barbería. Configurá tu horario propio.',
   default: 'Estás usando un horario por defecto. Configurá tu horario propio.',
+  cerrado: 'Sin horario configurado. Cargá tu horario propio para ver turnos.',
 };
 
 export default function HorarioHeredadoBanner({ origen }: Props) {
   const router = useRouter();
 
-  // Sin horario propio no hay nada que avisar.
+  // Con horario propio ('barbero') no hay nada que avisar.
   if (!origen || origen === 'barbero') return null;
 
   return (

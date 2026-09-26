@@ -100,14 +100,14 @@ export default function HorarioHabitualScreen() {
     getBarbero()
       .then((barbero) => {
         if (!mounted || !barbero) return;
-        // El formulario debe arrancar del horario que la app está usando de
-        // verdad: si el barbero no tiene el propio, hereda el de la barbería.
-        // Sembrarlo con un default local hacía que guardar pisara la herencia
-        // con valores que el barbero nunca eligió.
+        // El formulario arranca del horario propio del barbero. Sin horario
+        // propio ("cerrado") los campos quedan vacíos con el aviso visible:
+        // sembrar defaults locales haría que guardar pisara la nada con
+        // valores que el barbero nunca eligió.
         const efectivo = resolverHorarioEfectivo(barbero, barbero.Barberia);
         setDiasHabiles(new Set(efectivo.dias_habiles ?? []));
-        setHoraApertura(efectivo.hora_apertura);
-        setHoraCierre(efectivo.hora_cierre);
+        setHoraApertura(efectivo.hora_apertura ?? '');
+        setHoraCierre(efectivo.hora_cierre ?? '');
         setOrigen(efectivo.origen);
         setBarberia(barbero.Barberia);
       })
@@ -197,9 +197,11 @@ export default function HorarioHabitualScreen() {
             <View style={styles.heredadoCard}>
               <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
               <Text style={styles.heredadoText}>
-                {origen === 'barberia'
-                  ? 'Estás viendo el horario de tu barbería, porque todavía no cargaste el tuyo. Si guardás, empezás a usar este horario como propio.'
-                  : 'Estás viendo un horario por defecto, porque ni vos ni tu barbería tienen uno cargado. Si guardás, empezás a usar este horario como propio.'}
+                {origen === 'cerrado'
+                  ? 'Sin horario configurado. Cargá tus días y tu franja para que te puedan reservar.'
+                  : origen === 'barberia'
+                    ? 'Estás viendo el horario de tu barbería, porque todavía no cargaste el tuyo. Si guardás, empezás a usar este horario como propio.'
+                    : 'Estás viendo un horario por defecto, porque ni vos ni tu barbería tienen uno cargado. Si guardás, empezás a usar este horario como propio.'}
               </Text>
             </View>
           )}

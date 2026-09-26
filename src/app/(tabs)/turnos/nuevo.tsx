@@ -57,10 +57,14 @@ export default function NuevoTurnoScreen() {
   const [loadingOccupied, setLoadingOccupied] = useState(false);
   const [occupiedError, setOccupiedError] = useState<string | null>(null);
 
-  // Horario efectivo: el del barbero y, donde falte, el heredado de la barbería
+  // Horario efectivo: solo el propio del barbero; sin él el estado es
+  // "cerrado" (origen 'cerrado') y no hay slots.
   const horario = useMemo(() => resolverHorarioEfectivo(barbero, barbero?.Barberia), [barbero]);
 
-  // Slots generados según apertura/cierre efectivos
+  // Estado "cerrado": en vez de una grilla muda se muestra el aviso.
+  const sinHorario = horario.origen === 'cerrado';
+
+  // Slots generados según apertura/cierre efectivos (vacío si "cerrado")
   const timeSlots = useMemo(
     () => generateTimeSlots(horario.hora_apertura, horario.hora_cierre),
     [horario],
@@ -79,7 +83,8 @@ export default function NuevoTurnoScreen() {
         setBarbero(data);
 
         // Si el día seleccionado no es hábil, saltar al primero hábil del
-        // horario efectivo (propio o heredado de la barbería).
+        // horario propio del barbero. Sin horario ("cerrado") ningún día es
+        // hábil y se queda el día actual con el aviso visible.
         const efectivo = resolverHorarioEfectivo(data, data?.Barberia);
         if (data && !isDiaHabil(selectedDate, efectivo.dias_habiles)) {
           const next = Array.from({ length: 15 }, (_, i) => {
@@ -90,7 +95,8 @@ export default function NuevoTurnoScreen() {
           if (next && mounted) setSelectedDate(next);
         }
       } catch {
-        // sin config del barbero, se usan los defaults de availability.ts
+        // getBarbero() null = cuenta no vinculada: se deja el estado
+        // "cerrado" con su aviso, sin caer a defaults en silencio.
       }
     }
 
@@ -271,7 +277,17 @@ export default function NuevoTurnoScreen() {
               <Text style={styles.errorText}>{occupiedError}</Text>
             </View>
           )}
-          {loadingOccupied ? (
+          {sinHorario ? (
+            <View style={styles.avisoBox}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
+              <View style={styles.avisoBody}>
+                <Text style={styles.avisoTitle}>Sin horario configurado</Text>
+                <Text style={styles.avisoText}>
+                  Cargá el horario del profesional para ver los turnos disponibles.
+                </Text>
+              </View>
+            </View>
+          ) : loadingOccupied ? (
             <View style={{ paddingVertical: 24, alignItems: 'center' }}>
               <ActivityIndicator color={colors.primary} />
               <Text style={{ marginTop: 8, color: colors.inkSoft }}>Cargando horarios...</Text>
@@ -489,6 +505,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     flex: 1,
+  },
+  avisoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primaryLine,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  avisoBody: {
+    flex: 1,
+  },
+  avisoTitle: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  avisoText: {
+    color: colors.inkSoft,
+    fontSize: 13,
+    marginTop: 2,
   },
   bottomBar: {
     position: 'absolute',

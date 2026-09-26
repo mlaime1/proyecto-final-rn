@@ -71,10 +71,14 @@ export default function ModificarTurnoModal({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [occupiedSlots, setOccupiedSlots] = useState<Set<string>>(new Set());
 
-  // Horario efectivo: el del barbero y, donde falte, el heredado de la barbería
+  // Horario efectivo: solo el propio del barbero; sin él el estado es
+  // "cerrado" (origen 'cerrado') y no hay slots.
   const horario = useMemo(() => resolverHorarioEfectivo(barbero, barbero?.Barberia), [barbero]);
 
-  // Slots generados según apertura/cierre efectivos
+  // Estado "cerrado": en vez de una grilla muda se muestra el aviso.
+  const sinHorario = horario.origen === 'cerrado';
+
+  // Slots generados según apertura/cierre efectivos (vacío si "cerrado")
   const timeSlots = useMemo(
     () => generateTimeSlots(horario.hora_apertura, horario.hora_cierre),
     [horario],
@@ -89,7 +93,8 @@ export default function ModificarTurnoModal({
           if (mounted) setBarbero(data);
         })
         .catch(() => {
-          // sin config del barbero, se usan los defaults de availability.ts
+          // getBarbero() null = cuenta no vinculada: se deja el estado
+          // "cerrado" con su aviso, sin caer a defaults en silencio.
         });
 
       (async () => {
@@ -265,6 +270,11 @@ export default function ModificarTurnoModal({
             {/* Date */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Fecha</Text>
+              {sinHorario && (
+                <Text style={styles.avisoHint}>
+                  Sin horario configurado: cargá el horario del profesional para elegir fecha.
+                </Text>
+              )}
               <TouchableOpacity
                 style={styles.dropdown}
                 onPress={() => {
@@ -316,50 +326,62 @@ export default function ModificarTurnoModal({
             {/* Time */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Horario</Text>
-              <View style={styles.timeGrid}>
-                {timeSlots.map((time) => {
-                  const isOccupied = occupiedSlots.has(time);
+              {sinHorario ? (
+                <View style={styles.avisoBox}>
+                  <Ionicons name="information-circle-outline" size={18} color="#4C1D95" />
+                  <View style={styles.avisoBody}>
+                    <Text style={styles.avisoTitle}>Sin horario configurado</Text>
+                    <Text style={styles.avisoText}>
+                      Cargá el horario del profesional para ver los horarios disponibles.
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.timeGrid}>
+                  {timeSlots.map((time) => {
+                    const isOccupied = occupiedSlots.has(time);
 
-                  const now = new Date();
-                  const isToday =
-                    selectedDate.getDate() === now.getDate() &&
-                    selectedDate.getMonth() === now.getMonth() &&
-                    selectedDate.getFullYear() === now.getFullYear();
-                  let isPast = false;
-                  if (isToday) {
-                    const [h, m] = time.split(':').map(Number);
-                    if (h < now.getHours() || (h === now.getHours() && m <= now.getMinutes())) {
-                      isPast = true;
+                    const now = new Date();
+                    const isToday =
+                      selectedDate.getDate() === now.getDate() &&
+                      selectedDate.getMonth() === now.getMonth() &&
+                      selectedDate.getFullYear() === now.getFullYear();
+                    let isPast = false;
+                    if (isToday) {
+                      const [h, m] = time.split(':').map(Number);
+                      if (h < now.getHours() || (h === now.getHours() && m <= now.getMinutes())) {
+                        isPast = true;
+                      }
                     }
-                  }
 
-                  const isDisabled = isOccupied || isPast;
+                    const isDisabled = isOccupied || isPast;
 
-                  return (
-                    <TouchableOpacity
-                      key={time}
-                      style={[
-                        styles.timeSlot,
-                        selectedTime === time && styles.timeSlotSelected,
-                        isDisabled && styles.timeSlotDisabled,
-                      ]}
-                      onPress={() => setSelectedTime(time)}
-                      activeOpacity={0.75}
-                      disabled={isDisabled}
-                    >
-                      <Text
+                    return (
+                      <TouchableOpacity
+                        key={time}
                         style={[
-                          styles.timeSlotText,
-                          selectedTime === time && styles.timeSlotTextSelected,
-                          isDisabled && styles.timeSlotTextDisabled,
+                          styles.timeSlot,
+                          selectedTime === time && styles.timeSlotSelected,
+                          isDisabled && styles.timeSlotDisabled,
                         ]}
+                        onPress={() => setSelectedTime(time)}
+                        activeOpacity={0.75}
+                        disabled={isDisabled}
                       >
-                        {time}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                        <Text
+                          style={[
+                            styles.timeSlotText,
+                            selectedTime === time && styles.timeSlotTextSelected,
+                            isDisabled && styles.timeSlotTextDisabled,
+                          ]}
+                        >
+                          {time}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           </ScrollView>
 
@@ -504,6 +526,35 @@ const styles = StyleSheet.create({
   timeSlotTextDisabled: {
     color: '#94A3B8',
     textDecorationLine: 'line-through',
+  },
+  avisoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#EDE9FE',
+    borderWidth: 1,
+    borderColor: '#C4B5FD',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  avisoBody: {
+    flex: 1,
+  },
+  avisoTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  avisoText: {
+    fontSize: 13,
+    color: '#636366',
+    marginTop: 2,
+  },
+  avisoHint: {
+    fontSize: 13,
+    color: '#636366',
+    marginBottom: 8,
   },
   footer: {
     flexDirection: 'row',

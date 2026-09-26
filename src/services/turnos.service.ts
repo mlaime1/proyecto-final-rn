@@ -44,7 +44,6 @@ export type TurnoPorDia = {
   duracion_minutos: number;
 };
 
-const BOOKABLE_STATUSES = ['confirmado'];
 const VALID_ESTADOS = ['confirmado', 'cancelado'] as const;
 type EstadoTurno = (typeof VALID_ESTADOS)[number];
 
@@ -220,7 +219,7 @@ export async function getTurnosPorDia(date: Date): Promise<TurnoPorDia[]> {
     .from('Turno')
     .select('id, inicio, estado, duracion_minutos')
     .eq('barbero_id', barbero.id)
-    .in('estado', BOOKABLE_STATUSES)
+    .in('estado', OCCUPYING_STATUSES)
     .gte('inicio', startString)
     .lte('inicio', endString);
 
@@ -346,6 +345,21 @@ function mapCrearTurnoError(error: { code?: string; message?: string } | null): 
   }
   if (message.includes('SESION_INVALIDA')) {
     return 'Tu sesión expiró. Iniciá sesión nuevamente.';
+  }
+  if (message.includes('HORARIO_NO_CONFIGURADO')) {
+    return 'Ese profesional todavía no tiene horario cargado.';
+  }
+  if (message.includes('FUERA_DE_HORARIO')) {
+    return 'Está fuera del horario de atención.';
+  }
+  if (message.includes('HORARIO_BLOQUEADO')) {
+    return 'Ese horario está bloqueado.';
+  }
+  if (message.includes('TELEFONO_INVALIDO')) {
+    return 'Falta un teléfono válido (+549...).';
+  }
+  if (message.includes('SERVICIO_NO_RESERVABLE')) {
+    return 'Ese servicio no se puede reservar.';
   }
   return 'No se pudo crear el turno.';
 }

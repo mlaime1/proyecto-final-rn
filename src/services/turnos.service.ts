@@ -44,7 +44,6 @@ export type TurnoPorDia = {
   duracion_minutos: number;
 };
 
-const BOOKABLE_STATUSES = ['confirmado'];
 const VALID_ESTADOS = ['confirmado', 'cancelado'] as const;
 type EstadoTurno = (typeof VALID_ESTADOS)[number];
 
@@ -220,7 +219,7 @@ export async function getTurnosPorDia(date: Date): Promise<TurnoPorDia[]> {
     .from('Turno')
     .select('id, inicio, estado, duracion_minutos')
     .eq('barbero_id', barbero.id)
-    .in('estado', BOOKABLE_STATUSES)
+    .in('estado', OCCUPYING_STATUSES)
     .gte('inicio', startString)
     .lte('inicio', endString);
 

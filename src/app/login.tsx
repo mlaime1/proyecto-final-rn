@@ -141,6 +141,8 @@ const styles = StyleSheet.create({
   },
   content: {
     width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
   },
   title: {
     fontSize: 28,

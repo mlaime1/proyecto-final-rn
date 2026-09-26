@@ -126,3 +126,31 @@ export async function updateHorarioHabitual(data: HorarioHabitualData): Promise<
     hora_cierre: data.hora_cierre,
   });
 }
+
+/**
+ * Borra un barbero por id.
+ * Si tiene turnos, servicios o bloqueos asociados, Postgres rechaza el
+ * borrado con 23503 y se devuelve un mensaje claro en vez del error crudo.
+ * Sin UI que la use todavía: queda como path oficial a nivel servicio.
+ */
+export async function deleteBarbero(id: number): Promise<void> {
+  const { error } = await supabase.from('Barbero').delete().eq('id', id);
+
+  if (error) {
+    if (error.code === '23503') {
+      throw new ServiceError('No se puede borrar: tiene turnos en el historial.', {
+        code: error.code,
+        cause: error,
+      });
+    }
+    throw new ServiceError('No se pudo borrar el barbero.', {
+      code: error.code,
+      cause: error,
+    });
+  }
+
+  const { barbero: cached, setBarbero } = useAppStore.getState();
+  if (cached?.id === id) {
+    setBarbero(null);
+  }
+}

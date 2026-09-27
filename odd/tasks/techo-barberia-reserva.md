@@ -50,7 +50,7 @@ fuera del techo antes de llegar al RPC.
 - [x] T4 — `src/app/(tabs)/turnos/confirmar.tsx`: revalidar día hábil + ventana
   efectiva antes de `createAppointment` (barbero + barbería vía `getBarbero()`
   y el nuevo resolver); si falla, showAlert y no llamar.
-- [ ] T5 — `src/services/turnos.service.ts` `createAppointment`: pre-chequeo
+- [x] T5 — `src/services/turnos.service.ts` `createAppointment`: pre-chequeo
   cliente de día hábil + contención en ventana efectiva usando barbero y
   `barbero.Barberia`; lanzar `ServiceError('Está fuera del horario de
   atención.', { code: 'FUERA_DE_HORARIO' })`.
@@ -90,6 +90,11 @@ Push/PR/merge: decisión del usuario bajo política ordinaria del repo.
 - T4 done. `confirmar.tsx` revalida día hábil + ventana efectiva con
   `getBarbero()` antes de `createAppointment`; si falla, showAlert y no llama
   (el `finally` existente resetea el loading).
+- T5 done. `createAppointment` pre-chequea día hábil + ventana efectiva con
+  barbero y `barbero.Barberia` embebida; fuera del techo →
+  `ServiceError('Está fuera del horario de atención.', { code:
+  'FUERA_DE_HORARIO' })`, cubierto por el mapeo existente. Pasos renumerados
+  (2 techo, 3 solape, 4 RPC).
 
 ## Evidencia de verificación
 - (pendiente)

@@ -42,7 +42,7 @@ fuera del techo antes de llegar al RPC.
   apertura >= cierre → `origen: 'cerrado'` con campos en null (sin slots).
   Comentarios en español: única fuente para RESERVA; el resolver viejo sigue
   siendo para CONFIG. Reutilizar `toHHMM`/minutos existentes.
-- [ ] T2 — `src/app/(tabs)/turnos/nuevo.tsx`: nuevo resolver para
+- [x] T2 — `src/app/(tabs)/turnos/nuevo.tsx`: nuevo resolver para
   horario/timeSlots/isDisabled; aviso en vez de grilla si `selectedDate` no es
   hábil; `handleNext()` bloquea día no hábil y fuera de ventana con showAlert.
 - [ ] T3 — `src/components/ui/ModificarTurnoModal.tsx`: mismo cambio
@@ -81,6 +81,9 @@ Push/PR/merge: decisión del usuario bajo política ordinaria del repo.
 - T1 done. `resolverHorarioReservable` + `estaEnVentana` en
   `src/lib/availability.ts`; imports de tipos a `import type` (evita ciclo de
   runtime con `turnos.service.ts`); `resolverHorarioEfectivo` intacto.
+- T2 done. `nuevo.tsx` usa la intersección (DayStrip deshabilita fuera del
+  techo; aviso "Día no disponible" si el día elegido no es hábil);
+  `handleNext()` valida día + ventana antes del chequeo de pasado.
 
 ## Evidencia de verificación
 - (pendiente)

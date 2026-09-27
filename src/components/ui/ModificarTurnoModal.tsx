@@ -14,10 +14,12 @@ import { getBarbero, type BarberoConBarberia } from '@/services/barbero.service'
 import { getBloqueosDelDia } from '@/services/bloqueos.service';
 import {
   computeOccupiedSlots,
+  estaEnVentana,
   generateTimeSlots,
   isDiaHabil,
-  resolverHorarioEfectivo,
+  resolverHorarioReservable,
 } from '@/lib/availability';
+import { showAlert } from '@/lib/alert';
 
 const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTHS = [
@@ -71,12 +73,16 @@ export default function ModificarTurnoModal({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [occupiedSlots, setOccupiedSlots] = useState<Set<string>>(new Set());
 
-  // Horario efectivo: solo el propio del barbero; sin él el estado es
-  // "cerrado" (origen 'cerrado') y no hay slots.
-  const horario = useMemo(() => resolverHorarioEfectivo(barbero, barbero?.Barberia), [barbero]);
+  // Horario reservable: intersección barbero ∩ barbería (techo del local).
+  // Sin intersección el estado es "cerrado" (origen 'cerrado') y no hay slots.
+  const horario = useMemo(() => resolverHorarioReservable(barbero, barbero?.Barberia), [barbero]);
 
   // Estado "cerrado": en vez de una grilla muda se muestra el aviso.
   const sinHorario = horario.origen === 'cerrado';
+
+  // Día fuera del techo: también aviso, aunque la intersección global tenga
+  // días válidos.
+  const diaNoHabil = !isDiaHabil(selectedDate, horario.dias_habiles);
 
   // Slots generados según apertura/cierre efectivos (vacío si "cerrado")
   const timeSlots = useMemo(
@@ -177,7 +183,7 @@ export default function ModificarTurnoModal({
     };
   }, [selectedDate, visible, turno]);
 
-  // Solo días hábiles del horario efectivo dentro de los próximos 14 días
+  // Solo días reservables (intersección) dentro de los próximos 14 días
   const availableDays: Date[] = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
     d.setDate(new Date().getDate() + i);
@@ -186,6 +192,18 @@ export default function ModificarTurnoModal({
 
   const handleSave = () => {
     if (!selectedService || !selectedTime) return;
+
+    // Defensa ante estado viejo: el día tiene que estar en la intersección y
+    // el slot dentro de la ventana. Se avisa con alerta, como en nuevo.tsx.
+    if (!isDiaHabil(selectedDate, horario.dias_habiles)) {
+      showAlert('Día no disponible', 'Ese día no hay atención. Elegí otro día hábil.');
+      return;
+    }
+
+    if (!estaEnVentana(selectedTime, horario.hora_apertura, horario.hora_cierre)) {
+      showAlert('Horario no válido', 'Está fuera del horario de atención.');
+      return;
+    }
 
     const [h, m] = selectedTime.split(':').map(Number);
     const newInicio = new Date(selectedDate);
@@ -326,13 +344,17 @@ export default function ModificarTurnoModal({
             {/* Time */}
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Horario</Text>
-              {sinHorario ? (
+              {sinHorario || diaNoHabil ? (
                 <View style={styles.avisoBox}>
                   <Ionicons name="information-circle-outline" size={18} color="#4C1D95" />
                   <View style={styles.avisoBody}>
-                    <Text style={styles.avisoTitle}>Sin horario configurado</Text>
+                    <Text style={styles.avisoTitle}>
+                      {sinHorario ? 'Sin horario configurado' : 'Día no disponible'}
+                    </Text>
                     <Text style={styles.avisoText}>
-                      Cargá el horario del profesional para ver los horarios disponibles.
+                      {sinHorario
+                        ? 'Cargá el horario del profesional para ver los horarios disponibles.'
+                        : 'Ese día no hay atención. Elegí otro día hábil.'}
                     </Text>
                   </View>
                 </View>

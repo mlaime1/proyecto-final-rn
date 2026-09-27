@@ -16,9 +16,10 @@ import { getBloqueosDelDia } from '@/services/bloqueos.service';
 import { getServicios, getTurnosPorDia, type Servicio } from '@/services/turnos.service';
 import {
   computeOccupiedSlots,
+  estaEnVentana,
   generateTimeSlots,
   isDiaHabil,
-  resolverHorarioEfectivo,
+  resolverHorarioReservable,
 } from '@/lib/availability';
 import DayStrip, { buildDayRange } from '@/components/turnos/DayStrip';
 import TurnoHeader from '@/components/turnos/TurnoHeader';
@@ -57,12 +58,16 @@ export default function NuevoTurnoScreen() {
   const [loadingOccupied, setLoadingOccupied] = useState(false);
   const [occupiedError, setOccupiedError] = useState<string | null>(null);
 
-  // Horario efectivo: solo el propio del barbero; sin él el estado es
-  // "cerrado" (origen 'cerrado') y no hay slots.
-  const horario = useMemo(() => resolverHorarioEfectivo(barbero, barbero?.Barberia), [barbero]);
+  // Horario reservable: intersección barbero ∩ barbería (techo del local).
+  // Sin intersección el estado es "cerrado" (origen 'cerrado') y no hay slots.
+  const horario = useMemo(() => resolverHorarioReservable(barbero, barbero?.Barberia), [barbero]);
 
   // Estado "cerrado": en vez de una grilla muda se muestra el aviso.
   const sinHorario = horario.origen === 'cerrado';
+
+  // Día fuera del techo (ej. lunes si la barbería no abre): también aviso,
+  // aunque la intersección global tenga días válidos.
+  const diaNoHabil = !isDiaHabil(selectedDate, horario.dias_habiles);
 
   // Slots generados según apertura/cierre efectivos (vacío si "cerrado")
   const timeSlots = useMemo(
@@ -82,10 +87,10 @@ export default function NuevoTurnoScreen() {
         if (!mounted) return;
         setBarbero(data);
 
-        // Si el día seleccionado no es hábil, saltar al primero hábil del
-        // horario propio del barbero. Sin horario ("cerrado") ningún día es
-        // hábil y se queda el día actual con el aviso visible.
-        const efectivo = resolverHorarioEfectivo(data, data?.Barberia);
+        // Si el día seleccionado no es reservable, saltar al primero hábil de
+        // la intersección barbero ∩ barbería. Sin intersección ("cerrado")
+        // ningún día es hábil y se queda el día actual con el aviso visible.
+        const efectivo = resolverHorarioReservable(data, data?.Barberia);
         if (data && !isDiaHabil(selectedDate, efectivo.dias_habiles)) {
           const next = Array.from({ length: 15 }, (_, i) => {
             const d = new Date();
@@ -165,6 +170,18 @@ export default function NuevoTurnoScreen() {
 
   function handleNext() {
     if (!selectedService || !selectedTime) return;
+
+    // Defensa ante estado viejo (ej. cambió el horario tras elegir): el día
+    // tiene que estar en la intersección y el slot dentro de la ventana.
+    if (!isDiaHabil(selectedDate, horario.dias_habiles)) {
+      showAlert('Día no disponible', 'Ese día no hay atención. Elegí otro día hábil.');
+      return;
+    }
+
+    if (!estaEnVentana(selectedTime, horario.hora_apertura, horario.hora_cierre)) {
+      showAlert('Horario no válido', 'Está fuera del horario de atención.');
+      return;
+    }
 
     const [h, m] = selectedTime.split(':').map(Number);
     const selectedDateTime = new Date(selectedDate);
@@ -277,13 +294,17 @@ export default function NuevoTurnoScreen() {
               <Text style={styles.errorText}>{occupiedError}</Text>
             </View>
           )}
-          {sinHorario ? (
+          {sinHorario || diaNoHabil ? (
             <View style={styles.avisoBox}>
               <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
               <View style={styles.avisoBody}>
-                <Text style={styles.avisoTitle}>Sin horario configurado</Text>
+                <Text style={styles.avisoTitle}>
+                  {sinHorario ? 'Sin horario configurado' : 'Día no disponible'}
+                </Text>
                 <Text style={styles.avisoText}>
-                  Cargá el horario del profesional para ver los turnos disponibles.
+                  {sinHorario
+                    ? 'Cargá el horario del profesional para ver los turnos disponibles.'
+                    : 'Ese día no hay atención. Elegí otro día hábil.'}
                 </Text>
               </View>
             </View>

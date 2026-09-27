@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { estaEnVentana, isDiaHabil, resolverHorarioReservable } from '@/lib/availability';
 import { getBarbero } from '@/services/barbero.service';
 import { ServiceError } from '@/services/error';
 import { useAppStore } from '@/store/app.store';
@@ -398,7 +399,26 @@ export async function createAppointment(data: CreateAppointmentData) {
     });
   }
 
-  // 2. pre-verificación de solape (solo UX; la BD es la autoridad).
+  // 2. pre-chequeo cliente contra el techo (intersección barbero ∩ barbería,
+  //    con la Barberia ya embebida en getBarbero). Solo UX: la autoridad real
+  //    es la RPC `crear_turno`, que impone la opción B server-side.
+  {
+    const reservable = resolverHorarioReservable(barbero, barbero.Barberia);
+    const horaHHMM = `${inicioDate.getHours().toString().padStart(2, '0')}:${inicioDate
+      .getMinutes()
+      .toString()
+      .padStart(2, '0')}`;
+    if (
+      !isDiaHabil(inicioDate, reservable.dias_habiles) ||
+      !estaEnVentana(horaHHMM, reservable.hora_apertura, reservable.hora_cierre)
+    ) {
+      throw new ServiceError('Está fuera del horario de atención.', {
+        code: 'FUERA_DE_HORARIO',
+      });
+    }
+  }
+
+  // 3. pre-verificación de solape (solo UX; la BD es la autoridad).
   const overlapping = await findOverlaps(barbero.id, inicioDate, finDate);
   if (overlapping.length > 0) {
     throw new ServiceError('El horario seleccionado ya no está disponible.', {
@@ -406,7 +426,7 @@ export async function createAppointment(data: CreateAppointmentData) {
     });
   }
 
-  // 3. alta atómica: cliente + turno en una sola transacción (RPC `crear_turno`).
+  // 4. alta atómica: cliente + turno en una sola transacción (RPC `crear_turno`).
   //    Si el turno falla (solape, relación inválida), Postgres revierte también
   //    la creación del cliente: nunca quedan clientes huérfanos.
   const { data: createdTurno, error } = await supabase.rpc('crear_turno', {

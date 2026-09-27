@@ -2,6 +2,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { createAppointment, type OrigenTurno } from '@/services/turnos.service';
+import { getBarbero } from '@/services/barbero.service';
+import { estaEnVentana, isDiaHabil, resolverHorarioReservable } from '@/lib/availability';
 import TurnoHeader from '@/components/turnos/TurnoHeader';
 import { colors, radius } from '@/components/turnos/theme';
 import { showAlert } from '@/lib/alert';
@@ -95,6 +97,22 @@ export default function ConfirmarTurnoScreen() {
       const [h, m] = timeParts;
       const startDateTime = new Date(date);
       startDateTime.setHours(h, m, 0, 0);
+
+      // Revalidación contra el techo vigente: el día tiene que estar en la
+      // intersección barbero ∩ barbería y el slot dentro de la ventana. Si
+      // falla, se avisa y NO se llama a createAppointment.
+      const barbero = await getBarbero();
+      const reservable = resolverHorarioReservable(barbero, barbero?.Barberia);
+
+      if (!isDiaHabil(startDateTime, reservable.dias_habiles)) {
+        showAlert('Día no disponible', 'Ese día no hay atención. Volvé y elegí otro día.');
+        return;
+      }
+
+      if (!estaEnVentana(params.time, reservable.hora_apertura, reservable.hora_cierre)) {
+        showAlert('Horario no válido', 'Está fuera del horario de atención.');
+        return;
+      }
 
       const tzOffset = startDateTime.getTimezoneOffset() * 60000;
       const localISOTime = new Date(startDateTime.getTime() - tzOffset).toISOString().slice(0, -1);

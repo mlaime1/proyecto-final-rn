@@ -54,7 +54,7 @@ fuera del techo antes de llegar al RPC.
   cliente de día hábil + contención en ventana efectiva usando barbero y
   `barbero.Barberia`; lanzar `ServiceError('Está fuera del horario de
   atención.', { code: 'FUERA_DE_HORARIO' })`.
-- [ ] TCLOSE — Verificación: `npx tsc --noEmit` + `npm run lint` en verde,
+- [x] TCLOSE — Verificación: `npx tsc --noEmit` + `npm run lint` en verde,
   reporte de outcome por tarea.
 
 ## Alcance autorizado
@@ -97,7 +97,14 @@ Push/PR/merge: decisión del usuario bajo política ordinaria del repo.
   (2 techo, 3 solape, 4 RPC).
 
 ## Evidencia de verificación
-- (pendiente)
+- `npx tsc --noEmit`: exit 0, sin salida (rama completa, tras cada tarea y al
+  cierre; re-verificado tras el autofix de prettier).
+- `npm run lint`: exit 0, 0 errores, 9 warnings `no-explicit-any`
+  preexistentes (`[id].tsx` ×5, `confirmar.tsx` catch ×1, `ModificarTurnoModal`
+  prop `turno` ×1, `useAuth.ts` ×2). Un warning nuevo de prettier en el import
+  de `confirmar.tsx` se corrigió con `eslint --fix` (colapso a una línea).
+- Commits: 183b13c (T1 + doc base), a98c288 (T2), 97cdbdd (T3), 0f05054 (T4),
+  2626974 (T5).
 
 ## Locator
 - Repo-relative: `odd/tasks/techo-barberia-reserva.md`

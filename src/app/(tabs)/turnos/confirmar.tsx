@@ -3,11 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { createAppointment, type OrigenTurno } from '@/services/turnos.service';
 import { getBarbero } from '@/services/barbero.service';
-import {
-  estaEnVentana,
-  isDiaHabil,
-  resolverHorarioReservable,
-} from '@/lib/availability';
+import { estaEnVentana, isDiaHabil, resolverHorarioReservable } from '@/lib/availability';
 import TurnoHeader from '@/components/turnos/TurnoHeader';
 import { colors, radius } from '@/components/turnos/theme';
 import { showAlert } from '@/lib/alert';

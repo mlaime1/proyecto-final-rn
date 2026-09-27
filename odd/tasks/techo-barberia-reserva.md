@@ -47,7 +47,7 @@ fuera del techo antes de llegar al RPC.
   hábil; `handleNext()` bloquea día no hábil y fuera de ventana con showAlert.
 - [x] T3 — `src/components/ui/ModificarTurnoModal.tsx`: mismo cambio
   (availableDays, timeSlots, aviso, validación en `handleSave`).
-- [ ] T4 — `src/app/(tabs)/turnos/confirmar.tsx`: revalidar día hábil + ventana
+- [x] T4 — `src/app/(tabs)/turnos/confirmar.tsx`: revalidar día hábil + ventana
   efectiva antes de `createAppointment` (barbero + barbería vía `getBarbero()`
   y el nuevo resolver); si falla, showAlert y no llamar.
 - [ ] T5 — `src/services/turnos.service.ts` `createAppointment`: pre-chequeo
@@ -87,6 +87,9 @@ Push/PR/merge: decisión del usuario bajo política ordinaria del repo.
 - T3 done. `ModificarTurnoModal` usa la intersección (availableDays, slots,
   aviso "Día no disponible"); `handleSave()` valida día + ventana con
   showAlert, como en `nuevo.tsx`.
+- T4 done. `confirmar.tsx` revalida día hábil + ventana efectiva con
+  `getBarbero()` antes de `createAppointment`; si falla, showAlert y no llama
+  (el `finally` existente resetea el loading).
 
 ## Evidencia de verificación
 - (pendiente)

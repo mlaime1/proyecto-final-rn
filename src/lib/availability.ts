@@ -1,5 +1,5 @@
-import { TurnoPorDia } from '@/services/turnos.service';
-import { BloqueoHorario } from '@/services/bloqueos.service';
+import type { TurnoPorDia } from '@/services/turnos.service';
+import type { BloqueoHorario } from '@/services/bloqueos.service';
 
 /* =========================
    Helpers de disponibilidad
@@ -95,6 +95,104 @@ export function resolverHorarioEfectivo(
     dias_habiles: diasPropios,
     origen: 'cerrado',
   };
+}
+
+/* =========================
+   Horario reservable (intersección para RESERVA — opción B)
+   La barbería funciona como TECHO: solo se puede reservar en el cruce de
+   ambos horarios (días en común y ventana greatest(aperturas)–least(cierres)),
+   igual que impone la RPC `crear_turno` server-side. Esta es la ÚNICA fuente
+   para RESERVA (grilla de turnos, nuevo/modificar/confirmar, pre-chequeo del
+   servicio). `resolverHorarioEfectivo` NO cambia: sigue siendo el horario
+   PROPIO para las pantallas de CONFIG (perfil/horario, perfil/excepciones),
+   que necesitan pre-sembrar formularios con lo propio.
+   Función pura: no consulta la base ni toca estado.
+   ========================= */
+
+/**
+ * Resuelve la ventana en la que se puede RESERVAR: intersección del horario
+ * del barbero con el de su barbería.
+ *
+ * - Días: intersección de ambos `dias_habiles` (solo enteros 0–6, ordenados).
+ * - Ventana: apertura = max(aperturas), cierre = min(cierres), en "HH:MM".
+ * - Si falta algún lado (horas o días en null/vacío), la intersección de días
+ *   es vacía o la apertura >= cierre, el resultado es "cerrado" (origen
+ *   'cerrado', campos en null): sin slots, igual que el estado cerrado del
+ *   resolver de config (ver `generateTimeSlots` / `isDiaHabil`).
+ * - Con intersección válida el origen se informa como 'barbero' (único valor
+ *   no-cerrado que consumen las pantallas de reserva: solo bifurcan por
+ *   `=== 'cerrado'`); el contenido ya es la intersección, no el horario propio.
+ */
+export function resolverHorarioReservable(
+  barbero: FuenteHorario | null | undefined,
+  barberia: FuenteHorario | null | undefined,
+): HorarioEfectivo {
+  const cerrado: HorarioEfectivo = {
+    hora_apertura: null,
+    hora_cierre: null,
+    dias_habiles: null,
+    origen: 'cerrado',
+  };
+
+  const aperturaBarbero = barbero?.hora_apertura ? toHHMM(barbero.hora_apertura) : null;
+  const cierreBarbero = barbero?.hora_cierre ? toHHMM(barbero.hora_cierre) : null;
+  const aperturaBarberia = barberia?.hora_apertura ? toHHMM(barberia.hora_apertura) : null;
+  const cierreBarberia = barberia?.hora_cierre ? toHHMM(barberia.hora_cierre) : null;
+
+  const diasBarbero = diasUtilizables(barbero?.dias_habiles);
+  const diasBarberia = diasUtilizables(barberia?.dias_habiles);
+
+  // Sin ambos lados completos no hay intersección que calcular.
+  if (!aperturaBarbero || !cierreBarbero || !aperturaBarberia || !cierreBarberia) return cerrado;
+  if (!diasBarbero || diasBarbero.length === 0 || !diasBarberia || diasBarberia.length === 0) {
+    return cerrado;
+  }
+
+  const aperturaBarberoMin = minutosSeguros(aperturaBarbero);
+  const cierreBarberoMin = minutosSeguros(cierreBarbero);
+  const aperturaBarberiaMin = minutosSeguros(aperturaBarberia);
+  const cierreBarberiaMin = minutosSeguros(cierreBarberia);
+
+  if (
+    aperturaBarberoMin === null ||
+    cierreBarberoMin === null ||
+    aperturaBarberiaMin === null ||
+    cierreBarberiaMin === null
+  ) {
+    return cerrado;
+  }
+
+  const dias = diasBarbero.filter((d) => diasBarberia.includes(d)).sort((a, b) => a - b);
+  if (dias.length === 0) return cerrado;
+
+  const aperturaMin = Math.max(aperturaBarberoMin, aperturaBarberiaMin);
+  const cierreMin = Math.min(cierreBarberoMin, cierreBarberiaMin);
+  if (aperturaMin >= cierreMin) return cerrado;
+
+  return {
+    hora_apertura: aperturaMin === aperturaBarberoMin ? aperturaBarbero : aperturaBarberia,
+    hora_cierre: cierreMin === cierreBarberoMin ? cierreBarbero : cierreBarberia,
+    dias_habiles: dias,
+    origen: 'barbero',
+  };
+}
+
+/**
+ * ¿El slot "HH:MM" cae dentro de la ventana [apertura, cierre)?
+ * Pre-chequeo de UX para RESERVA (la autoridad real es la RPC `crear_turno`):
+ * sin hora o sin ambos límites devuelve false. El inicio coincide con el
+ * último slot que genera `generateTimeSlots` (estrictamente menor al cierre).
+ */
+export function estaEnVentana(
+  hora: string | null | undefined,
+  apertura: string | null | undefined,
+  cierre: string | null | undefined,
+): boolean {
+  const horaMin = minutosSeguros(hora);
+  const aperturaMin = minutosSeguros(apertura);
+  const cierreMin = minutosSeguros(cierre);
+  if (horaMin === null || aperturaMin === null || cierreMin === null) return false;
+  return horaMin >= aperturaMin && horaMin < cierreMin;
 }
 
 function toMinutes(hhmm: string): number {

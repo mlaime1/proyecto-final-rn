@@ -45,7 +45,7 @@ fuera del techo antes de llegar al RPC.
 - [x] T2 — `src/app/(tabs)/turnos/nuevo.tsx`: nuevo resolver para
   horario/timeSlots/isDisabled; aviso en vez de grilla si `selectedDate` no es
   hábil; `handleNext()` bloquea día no hábil y fuera de ventana con showAlert.
-- [ ] T3 — `src/components/ui/ModificarTurnoModal.tsx`: mismo cambio
+- [x] T3 — `src/components/ui/ModificarTurnoModal.tsx`: mismo cambio
   (availableDays, timeSlots, aviso, validación en `handleSave`).
 - [ ] T4 — `src/app/(tabs)/turnos/confirmar.tsx`: revalidar día hábil + ventana
   efectiva antes de `createAppointment` (barbero + barbería vía `getBarbero()`
@@ -84,6 +84,9 @@ Push/PR/merge: decisión del usuario bajo política ordinaria del repo.
 - T2 done. `nuevo.tsx` usa la intersección (DayStrip deshabilita fuera del
   techo; aviso "Día no disponible" si el día elegido no es hábil);
   `handleNext()` valida día + ventana antes del chequeo de pasado.
+- T3 done. `ModificarTurnoModal` usa la intersección (availableDays, slots,
+  aviso "Día no disponible"); `handleSave()` valida día + ventana con
+  showAlert, como en `nuevo.tsx`.
 
 ## Evidencia de verificación
 - (pendiente)

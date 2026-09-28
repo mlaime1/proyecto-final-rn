@@ -58,6 +58,7 @@ Usuario autorizó PWA + Web Push solo barbero (reserva/cancelación/ambos), sin 
 - 2026-09-28: T4 done (commit e584e37). PR2 acumula 460. Sigo con T5 (último, luego aviso prueba iPhone).
 - 2026-09-28: T5 done (commit 1d9fbb3). Todo el código listo. Falta TCLOSE + pendientes usuario (VAPID, deploy, migración). PR2 total ~825.
 - 2026-09-28: TCLOSE automatizado PASS (tsc/lint/export). Rama limpia, 12 commits, lista para PR1/PR2. Prueba real en dispositivos queda en manos del usuario.
+- 2026-09-28: usuario aplicó migración (verificado: push_subscriptions + prefs existen), regeneró VAPID, seteó secrets y deployó send-push (verificado: ACTIVE v1). Falta rebuild web + smoke test + prueba iPhone.
 
 ## Delivery
 - Estrategia: `ask-on-risk` -> usuario eligió PRs encadenados `stacked-to-main` (2026-09-28). PR1 = T1–T3 (~643 líneas), PR2 = T4–T5. Avisar al cerrar T5 para prueba en iPhone.

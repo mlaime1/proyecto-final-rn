@@ -33,7 +33,7 @@ Usuario autorizó opción A (PWA + Web Push). Clientes fuera de alcance por ahor
 - [x] T3 — Client lib agnóstica `src/lib/push/`: `detect.ts` (isStandalone, isIOS, isPushSupported), `vapid.ts` (VAPID public de env), `subscription.ts` (getRegistration, subscribe, unsubscribe, saveToSupabase, base64 helpers). Sin imports RN/Expo. Solo Web Push estándar. VERIFICADO 2026-09-28: tsc 0, lint 0 errores/0 nuevos, cero imports expo/RN. Commit 8c3dd29. Nota: importa supabase+barbero.service (transitivo expo-secure-store) — en Next se re-apuntan 2 imports.
 - [x] T4 — UI barbero `perfil/notificaciones.tsx`: muestra estado (no-instalada / instalada-sin-permiso / activa), botón Activar (gesto) con guía iOS Share->Add + Android Install, toggles reserva/cancelación (guardan en `Barbero`), botón Desactivar (unsubscribe + borra subscription con 410), row en `perfil/index.tsx`. Header back custom (perfil es Stack headerShown false). VERIFICADO 2026-09-28: tsc 0, lint 0 errores/0 nuevos. Commit e584e37 (460 líneas). Sin prueba real hasta TCLOSE (requiere VAPID T5).
 - [x] T5 — Sender + wiring: `supabase/functions/send-push/` (valida JWT barbero o service_role según trigger, lee prefs, filtra por evento `reserva|cancelacion`, envía con VAPID privada desde secret, prune 404/410) + llamada desde `turnos.service.ts` tras `crear_turno` y tras cancelar (fire-and-forget, no bloquea UX) + README deploy + notas port Next.js (qué archivos se copian tal cual). VERIFICADO 2026-09-28: tsc 0, lint 0 errores/0 nuevos, sin deploy. Commit 1d9fbb3. Corrige typo doc: `cancelacion`.
-- [ ] TCLOSE — Verificación: `npx tsc --noEmit`, `npm run lint`, `npx expo export --platform web` genera manifest+SW en `dist/`, prueba manual en Android real + iPhone real 16.4+ (instalada desde icono), reporte honesto de fallos/pendientes.
+- [x] TCLOSE — Verificación automatizada PASS 2026-09-28: `tsc` 0, `lint` 0 errores/0 nuevos, `expo export` OK con manifest+SW+link en `dist/`. PENDIENTE usuario (cierra TCLOSE real): aplicar migración, VAPID, secrets, deploy function, prueba Android + iPhone 16.4+ instalado desde icono.
 
 ## Alcance autorizado
 Usuario autorizó PWA + Web Push solo barbero (reserva/cancelación/ambos), sin Apple Developer, Android+iOS, parche portable a Next.js. Cubre T1–T5 + TCLOSE en este feature. Expansiones (clientes, WhatsApp/email, nativo) requieren autorización aparte. Push/PR/merge: decisión del usuario.
@@ -57,6 +57,7 @@ Usuario autorizó PWA + Web Push solo barbero (reserva/cancelación/ambos), sin 
 - 2026-09-28: T3 done (commit 8c3dd29). Scope OK. Acumulado ~643 líneas (206+218+219) > heurística 400. Estrategia ask-on-risk: debo preguntar split vs size:exception antes de T4.
 - 2026-09-28: T4 done (commit e584e37). PR2 acumula 460. Sigo con T5 (último, luego aviso prueba iPhone).
 - 2026-09-28: T5 done (commit 1d9fbb3). Todo el código listo. Falta TCLOSE + pendientes usuario (VAPID, deploy, migración). PR2 total ~825.
+- 2026-09-28: TCLOSE automatizado PASS (tsc/lint/export). Rama limpia, 12 commits, lista para PR1/PR2. Prueba real en dispositivos queda en manos del usuario.
 
 ## Delivery
 - Estrategia: `ask-on-risk` -> usuario eligió PRs encadenados `stacked-to-main` (2026-09-28). PR1 = T1–T3 (~643 líneas), PR2 = T4–T5. Avisar al cerrar T5 para prueba en iPhone.

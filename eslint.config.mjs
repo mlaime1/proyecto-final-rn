@@ -8,7 +8,16 @@ import prettierConfig from 'eslint-config-prettier';
 
 export default [
   {
-    ignores: ['node_modules/**', '.expo/**', 'android/**', 'ios/**', 'dist/**'],
+    ignores: [
+      'node_modules/**',
+      '.expo/**',
+      'android/**',
+      'ios/**',
+      'dist/**',
+      // Edge Functions Deno: tipos/globals Deno, fuera del lint app
+      // (igual que se scoteó src/lib/push/** por sus globals web).
+      'supabase/functions/**',
+    ],
   },
   js.configs.recommended,
   {

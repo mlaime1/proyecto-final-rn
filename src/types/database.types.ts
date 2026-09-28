@@ -61,6 +61,8 @@ export type Database = {
           hora_cierre: string | null;
           id: number;
           nombre: string;
+          notify_on_cancelacion: boolean;
+          notify_on_reserva: boolean;
           precio_base: number | null;
           users_id: string;
         };
@@ -77,6 +79,8 @@ export type Database = {
           hora_cierre?: string | null;
           id?: never;
           nombre: string;
+          notify_on_cancelacion?: boolean;
+          notify_on_reserva?: boolean;
           precio_base?: number | null;
           users_id: string;
         };
@@ -93,6 +97,8 @@ export type Database = {
           hora_cierre?: string | null;
           id?: never;
           nombre?: string;
+          notify_on_cancelacion?: boolean;
+          notify_on_reserva?: boolean;
           precio_base?: number | null;
           users_id?: string;
         };
@@ -318,6 +324,44 @@ export type Database = {
             columns: ['servicio_id'];
             isOneToOne: false;
             referencedRelation: 'Servicio';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      push_subscriptions: {
+        Row: {
+          auth: string;
+          barbero_id: number;
+          created_at: string;
+          endpoint: string;
+          id: number;
+          p256dh: string;
+          user_agent: string | null;
+        };
+        Insert: {
+          auth: string;
+          barbero_id: number;
+          created_at?: string;
+          endpoint: string;
+          id?: never;
+          p256dh: string;
+          user_agent?: string | null;
+        };
+        Update: {
+          auth?: string;
+          barbero_id?: number;
+          created_at?: string;
+          endpoint?: string;
+          id?: never;
+          p256dh?: string;
+          user_agent?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'push_subscriptions_barbero_id_fkey';
+            columns: ['barbero_id'];
+            isOneToOne: false;
+            referencedRelation: 'Barbero';
             referencedColumns: ['id'];
           },
         ];

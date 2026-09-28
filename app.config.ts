@@ -29,6 +29,15 @@ export default {
     },
     web: {
       favicon: './assets/favicon.png',
+      name: 'turnos-app',
+      shortName: 'turnos-app',
+      lang: 'es',
+      scope: '/',
+      startUrl: '/',
+      display: 'standalone',
+      orientation: 'portrait',
+      themeColor: '#ffffff',
+      backgroundColor: '#ffffff',
     },
     extra: {
       eas: {

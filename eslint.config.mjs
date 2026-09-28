@@ -8,7 +8,16 @@ import prettierConfig from 'eslint-config-prettier';
 
 export default [
   {
-    ignores: ['node_modules/**', '.expo/**', 'android/**', 'ios/**', 'dist/**'],
+    ignores: [
+      'node_modules/**',
+      '.expo/**',
+      'android/**',
+      'ios/**',
+      'dist/**',
+      // Edge Functions Deno: tipos/globals Deno, fuera del lint app
+      // (igual que se scoteó src/lib/push/** por sus globals web).
+      'supabase/functions/**',
+    ],
   },
   js.configs.recommended,
   {
@@ -53,6 +62,25 @@ export default [
     settings: {
       react: {
         version: 'detect',
+      },
+    },
+  },
+  // Web-only push helpers: plain Web APIs (Service Worker, navigator), no
+  // react-native. Checked by tsc (DOM lib); teach eslint the globals here so
+  // T1/T3 don't trip no-undef. Scoped to this dir on purpose.
+  {
+    files: ['src/lib/push/**/*.ts'],
+    languageOptions: {
+      globals: {
+        window: 'readonly',
+        navigator: 'readonly',
+        self: 'readonly',
+        ServiceWorkerRegistration: 'readonly',
+        Navigator: 'readonly',
+        PushSubscription: 'readonly',
+        Notification: 'readonly',
+        atob: 'readonly',
+        btoa: 'readonly',
       },
     },
   },

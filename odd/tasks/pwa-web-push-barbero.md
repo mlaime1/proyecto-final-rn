@@ -57,7 +57,7 @@ Usuario autorizó PWA + Web Push solo barbero (reserva/cancelación/ambos), sin 
 - 2026-09-28: T3 done (commit 8c3dd29). Scope OK. Acumulado ~643 líneas (206+218+219) > heurística 400. Estrategia ask-on-risk: debo preguntar split vs size:exception antes de T4.
 
 ## Delivery
-- Estrategia: `ask-on-risk`. Forecast 600-800 líneas authored (excluye `dist/`). Si al cerrar T3 ya pasamos 400, se avisa split vs `size:exception` antes de T5.
+- Estrategia: `ask-on-risk` -> usuario eligió PRs encadenados `stacked-to-main` (2026-09-28). PR1 = T1–T3 (~643 líneas), PR2 = T4–T5. Avisar al cerrar T5 para prueba en iPhone.
 - Frontera base: rama `feat/techo-barberia-reserva` (actual). Nueva rama `feat/pwa-web-push-barbero` desde ahí.
 - Commits: work-unit por tarea, Conventional Commits, tests/docs junto al comportamiento (docs = guía iOS + README deploy).
 

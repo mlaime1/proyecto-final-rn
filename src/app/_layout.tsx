@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import AlertHost from '@/components/ui/AlertHost';
@@ -9,6 +9,16 @@ export default function RootLayout() {
   const { session, loading } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+
+  // PWA service worker: web only, never on native. Dynamic import keeps it
+  // out of the native bundle; registerSw itself is plain Web APIs.
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      void import('@/lib/push/registerSw').then(({ registerPushServiceWorker }) =>
+        registerPushServiceWorker(),
+      );
+    }
+  }, []);
 
   useEffect(() => {
     if (loading) return;

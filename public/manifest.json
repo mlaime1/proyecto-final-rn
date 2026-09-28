@@ -1,0 +1,26 @@
+{
+  "name": "turnos-app",
+  "short_name": "turnos-app",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "es",
+  "dir": "ltr",
+  "description": "Reservas de barbería: el barbero recibe avisos de reservas y cancelaciones.",
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -56,4 +56,18 @@ export default [
       },
     },
   },
+  // Web-only push helpers: plain Web APIs (Service Worker, navigator), no
+  // react-native. Checked by tsc (DOM lib); teach eslint the globals here so
+  // T1/T3 don't trip no-undef. Scoped to this dir on purpose.
+  {
+    files: ['src/lib/push/**/*.ts'],
+    languageOptions: {
+      globals: {
+        window: 'readonly',
+        navigator: 'readonly',
+        self: 'readonly',
+        ServiceWorkerRegistration: 'readonly',
+      },
+    },
+  },
 ];

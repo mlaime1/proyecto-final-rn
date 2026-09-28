@@ -10,5 +10,7 @@
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules"]
+  // La Edge Function Deno (supabase/functions) usa tipos Deno / `npm:` que no
+  // existen en el typecheck Expo: se valida con `supabase functions serve`.
+  "exclude": ["node_modules", "supabase/functions"]
 }

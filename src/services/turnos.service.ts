@@ -58,6 +58,36 @@ const MAX_DURACION_MINUTOS = 480;
 export type OrigenTurno = 'presencial' | 'whatsapp';
 
 /* =========================
+   PUSH (Web Push barbero, T5 scaffold)
+   Fire-and-forget: nunca rompe crear/cancelar. Si la function aún no está
+   deployada, el fallo se traga con console.warn (sin showAlert).
+========================= */
+type PushEvento = 'reserva' | 'cancelacion';
+
+function notifyPushAsync(payload: {
+  barbero_id: number;
+  evento: PushEvento;
+  titulo: string;
+  cuerpo: string;
+  turno_id?: number;
+}) {
+  try {
+    void supabase.functions
+      .invoke('send-push', { body: payload })
+      .then(({ error }) => {
+        if (error) {
+          console.warn('[push] send-push falló:', error.message);
+        }
+      })
+      .catch((err) => {
+        console.warn('[push] send-push no disponible:', err);
+      });
+  } catch (err) {
+    console.warn('[push] send-push no disponible:', err);
+  }
+}
+
+/* =========================
    Helpers
 ========================= */
 async function getCurrentBarbero() {
@@ -446,7 +476,17 @@ export async function createAppointment(data: CreateAppointmentData) {
     });
   }
 
-  return createdTurno as Turno;
+  const created = createdTurno as Turno;
+  const createdId = (created as { id?: unknown }).id;
+  notifyPushAsync({
+    barbero_id: barbero.id,
+    evento: 'reserva',
+    titulo: 'Nueva reserva',
+    cuerpo: `Nuevo turno reservado para ${inicio}.`,
+    turno_id: typeof createdId === 'number' ? createdId : undefined,
+  });
+
+  return created;
 }
 
 /* =========================
@@ -590,6 +630,13 @@ export async function updateTurno(
     });
   }
 
+  maybeNotifyCancelacion({
+    barberoId: barbero.id,
+    turnoId: id,
+    estadoPrevio: actual.estado ?? null,
+    estadoPedido: payload.estado,
+  });
+
   return {
     ...updatedTurno,
     Cliente: Array.isArray(updatedTurno.Cliente)
@@ -599,6 +646,26 @@ export async function updateTurno(
       ? (updatedTurno.Servicio[0] ?? null)
       : updatedTurno.Servicio,
   } as TurnoConRelaciones;
+}
+
+/* La cancelación en la UI es `updateTurno(id, { estado: 'cancelado' })`
+   (ver `src/app/(tabs)/turnos/[id].tsx`). Solo se notifica la transición
+   real a cancelado, no los updates sobre un turno ya cancelado. */
+function maybeNotifyCancelacion(opts: {
+  barberoId: number;
+  turnoId: number;
+  estadoPrevio: string | null;
+  estadoPedido: string | null | undefined;
+}) {
+  if (opts.estadoPedido === 'cancelado' && opts.estadoPrevio !== 'cancelado') {
+    notifyPushAsync({
+      barbero_id: opts.barberoId,
+      evento: 'cancelacion',
+      titulo: 'Turno cancelado',
+      cuerpo: `Se canceló el turno #${opts.turnoId}.`,
+      turno_id: opts.turnoId,
+    });
+  }
 }
 
 /* =========================

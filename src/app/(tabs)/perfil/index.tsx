@@ -123,6 +123,23 @@ export default function PerfilScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={styles.menuRow}
+            onPress={() => router.push('/(tabs)/perfil/notificaciones')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Configurar notificaciones"
+          >
+            <View style={styles.menuRowLeft}>
+              <Ionicons name="notifications-outline" size={20} color="#4C1D95" />
+              <View>
+                <Text style={styles.menuTitle}>Notificaciones</Text>
+                <Text style={styles.menuSubtitle}>Avisos de reservas y cancelaciones</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.menuRow, styles.menuRowLast]}
             onPress={() => router.push('/(tabs)/perfil/cambiar-password')}
             activeOpacity={0.7}
